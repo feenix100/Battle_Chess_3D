@@ -3,7 +3,7 @@
 ![Battle Chess 3D screenshot](screenshot.png)
 
 This is Chess, with a twist. Inspired by *Battle Chess*, released for MS-DOS in
-[January 1989](https://www.mobygames.com/game/1950/battle-chess/releases/dos/),
+[January 1989]([https://www.mobygames.com/game/1950/battle-chess/releases/dos/](https://classicreload.com/battle-chess.html)),
 BattleChess 3D
 takes that idea in a modern direction with animated 3D characters and explosive projectile captures. Every piece has a different capture animation. 
 
