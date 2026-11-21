@@ -43,6 +43,112 @@ person or the built-in CPU.
   from all four corners, and a gold-trimmed plaque announces the winner with a
   New game button. The board stays visible.
 
+## How the 3D models and Rust animations work
+
+Battle Chess 3D uses **Blender and Python to build its character geometry**, then
+**Rust and Bevy to display, pose, move, and animate that geometry**. The exported
+STLs are useful for inspecting or printing the models, but the game **does not
+load or animate STL files at runtime**. It uses a separate, joint-aware binary
+mesh format.
+
+### 1. Generate the models and STLs in Blender with Python
+
+The six piece-generation scripts live in [`docs/blender/`](docs/blender/README.md):
+[`build_pawn.py`](docs/blender/build_pawn.py),
+[`build_knight.py`](docs/blender/build_knight.py),
+[`build_bishop.py`](docs/blender/build_bishop.py),
+[`build_rook.py`](docs/blender/build_rook.py),
+[`build_queen.py`](docs/blender/build_queen.py), and
+[`build_king.py`](docs/blender/build_king.py).
+
+They use Blender's Python API (`bpy`) to construct or adapt the piece geometry.
+For example, the bishop, queen, and king scripts define profiles and sculpted
+details in Python. Their shared helper,
+[`docs/blender/figure_mesh.py`](docs/blender/figure_mesh.py), builds lofted
+surfaces, smooths and voxel-remeshes the geometry, reduces polygon counts,
+triangulates faces, and exports the finished model. **This is the repository's
+shared final-mesh export helper; there is no script named `finalmesh.py`.**
+The pawn and knight have their own export implementations, while the rook
+exports multiple rigid parts for its animated hatches and walking limbs.
+
+To regenerate a piece from the repository root, run its script inside Blender:
+
+```sh
+blender --background --factory-startup --python docs/blender/build_bishop.py
+```
+
+Each build produces **two different outputs from the model**:
+
+- **`docs/stl/<piece>.stl`** — a neutral/resting-pose STL exported by
+  Blender with `bpy.ops.wm.stl_export`. These are reference/3D-printable
+  geometry exports, **not** the runtime animation assets.
+- **`art/<piece>/*.mesh`** — the game's custom binary meshes, containing
+  vertex positions and normals, triangle indices, and, for skinned characters,
+  rest-joint positions plus up to four joint indices and weights per vertex.
+  The exporter writes the `BCM1` or `BCM2` binary format consumed by Rust.
+
+The knight is a special case: its build script adapts an attributed third-party
+warhorse STL as **input**, then writes the game's adapted
+`art/knight/warhorse.mesh` and `docs/stl/warhorse.stl`. See the
+[Blender instructions](docs/blender/README.md#knight-source) for the original
+model and the required `--source` argument.
+
+### 2. Load and animate the meshes in Rust
+
+In [`src/characters/model.rs`](src/characters/model.rs), Rust embeds the
+`art/` meshes directly into the executable with `include_bytes!`.
+[`src/characters/model/skin.rs`](src/characters/model/skin.rs) then decodes
+the binary vertices, normals, indices, joint IDs, and skin weights into a
+Bevy `Mesh`. It constructs the inverse bind poses and spawns a `Mesh3d`
+with a `SkinnedMesh` component and a hierarchy of joint entities.
+
+A skinned vertex can be influenced by up to four joints. Moving an arm or leg
+joint changes how Bevy deforms the attached vertices, rather than rebuilding
+the whole mesh for each animation frame. The rook is different: its tower,
+hatches, and limb bricks are **separate rigid meshes**, and Rust animates
+those parts with transforms.
+
+The motion itself is also **written in Rust**, not baked into the STLs.
+[`src/characters/animation.rs`](src/characters/animation.rs) defines
+`Pose` values for the body, head, arms, legs, weapons, cloth, and hatches;
+keyframe interpolation and easing blend poses smoothly. The character systems
+in [`src/characters.rs`](src/characters.rs) update these poses as pieces
+walk, attack, react to hits, and travel to their destination squares. Even the
+knight's two-stage L-shaped leap and the rook's unfold/walk/fold sequence are
+controlled by code.
+
+### 3. Build every projectile animation in Rust
+
+**The projectile flights and effects are procedural Rust code**, not Blender
+animations. [`src/projectiles.rs`](src/projectiles.rs) creates Bevy meshes
+and materials for the shots, assigns each chess role an attack `profile()`
+(projectile count, launch delay, flight time, stagger, and arc), and spawns
+projectile entities. Every update, `Projectile::position(t)` and
+`Projectile::rotation(t)` calculate where the projectile belongs and which
+way it faces.
+
+For ordinary arcing shots, the position starts with a straight interpolation
+from attacker to target, then adds a parabolic lift using
+`4.0 * t * (1.0 - t)` (where `t` runs from 0 to 1). Piece-specific logic
+adds spread, height, spirals, or different flight paths:
+
+- **Pawn:** three staggered holographic bullets.
+- **Knight:** a cannonball splits into four smaller rounds in
+  [`cannon.rs`](src/projectiles/cannon.rs).
+- **Bishop:** branching lightning meshes and flickering patterns in
+  [`lightning.rs`](src/projectiles/lightning.rs).
+- **Rook:** a timed drone flight, grenade drop, and return trip in
+  [`drone.rs`](src/projectiles/drone.rs).
+- **Queen:** staggered artillery shells with smoke and impact effects in
+  [`artillery.rs`](src/projectiles/artillery.rs).
+- **King:** a falling bomb followed by an animated flash, shockwave, dust,
+  and mushroom cloud in [`bomb.rs`](src/projectiles/bomb.rs).
+
+Finally, [`src/main.rs`](src/main.rs) keeps captures synchronized with
+these effects: it stores a legal capture as a **pending move**, leaves the
+defender visible while the attack plays, and only commits the chess move after
+the relevant projectiles and explosion effects finish.
+
 ## Capture animations
 
 Each GIF shows the named piece making a capture, including its projectile,
