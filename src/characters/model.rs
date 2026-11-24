@@ -4,10 +4,18 @@ use shakmaty::Role;
 use super::animation::Pose;
 
 mod horse;
+mod lowrider;
+mod mansion;
 mod pawn;
+mod police_bishop;
 mod rook;
 mod skin;
+mod street_king;
+mod street_pawn;
+mod street_queen;
 
+pub(crate) use lowrider::{LowriderArm, LowriderDroneAssets, LowriderRotor};
+pub(crate) use mansion::MansionMolotovAssets;
 use skin::SkinAssets;
 
 #[derive(Component)]
@@ -30,10 +38,20 @@ pub(super) struct Rig {
     cloth: Option<Entity>,
     retractable: bool,
     hatch: Option<[Entity; 2]>,
+    car: Option<lowrider::CarRig>,
+    mansion: Option<mansion::MansionRig>,
 }
 
 impl Rig {
     pub fn pose(&self, pose: Pose, joints: &mut Query<&mut Transform, With<Joint>>) {
+        if let Some(mansion) = &self.mansion {
+            mansion::pose(self, mansion, pose, joints);
+            return;
+        }
+        if let Some(car) = &self.car {
+            lowrider::pose(self, car, pose, joints);
+            return;
+        }
         let lift = if self.retractable {
             rook::extend(self, pose.extension, joints)
         } else {
@@ -47,11 +65,11 @@ impl Rig {
             set_rotation(joints, head, rotation(pose.head));
         }
         if let Some(arms) = self.arms {
-            for (limb, angles) in arms.into_iter().zip(pose.arms) {
+            for (index, (limb, angles)) in arms.into_iter().zip(pose.arms).enumerate() {
                 set_rotation(
                     joints,
                     limb.upper,
-                    rotation(Vec3::new(angles.x, 0.0, angles.y)),
+                    rotation(Vec3::new(angles.x, pose.arm_yaw[index], angles.y)),
                 );
                 set_rotation(joints, limb.lower, Quat::from_rotation_x(angles.z));
             }
@@ -63,7 +81,11 @@ impl Rig {
             }
         }
         if let Some(weapon) = self.weapon {
-            set_rotation(joints, weapon, Quat::from_rotation_x(pose.weapon));
+            set_rotation(
+                joints,
+                weapon,
+                rotation(Vec3::new(pose.weapon, pose.weapon_yaw, 0.0)),
+            );
         }
         if let Some(cloth) = self.cloth {
             set_rotation(joints, cloth, Quat::from_rotation_x(pose.cloth));
@@ -91,30 +113,43 @@ pub(crate) struct CharacterAssets {
     rook: rook::RookMeshes,
     horse: SkinAssets,
     pawn: SkinAssets,
+    street_pawn: SkinAssets,
+    lowrider: lowrider::CarAssets,
+    mansion: mansion::MansionAssets,
     bishop: SkinAssets,
+    police_bishop: SkinAssets,
     queen: SkinAssets,
+    street_queen: SkinAssets,
     king: SkinAssets,
+    street_king: SkinAssets,
 }
 
 impl CharacterAssets {
     pub fn new(
         meshes: &mut Assets<Mesh>,
         bindposes: &mut Assets<SkinnedMeshInverseBindposes>,
+        materials: &mut Assets<StandardMaterial>,
     ) -> Self {
         Self {
             rook: rook::RookMeshes::new(meshes),
             horse: SkinAssets::new(horse::MESH, meshes, bindposes),
             pawn: SkinAssets::new(pawn::MESH, meshes, bindposes),
+            street_pawn: street_pawn::new(meshes, bindposes, materials),
+            lowrider: lowrider::CarAssets::new(meshes, materials),
+            mansion: mansion::MansionAssets::new(meshes, materials),
+            police_bishop: police_bishop::new(meshes, bindposes, materials),
             bishop: SkinAssets::new(
                 include_bytes!("../../art/bishop/bishop.mesh"),
                 meshes,
                 bindposes,
             ),
+            street_queen: street_queen::new(meshes, bindposes, materials),
             queen: SkinAssets::new(
                 include_bytes!("../../art/queen/queen.mesh"),
                 meshes,
                 bindposes,
             ),
+            street_king: street_king::new(meshes, bindposes, materials),
             king: SkinAssets::new(
                 include_bytes!("../../art/king/king.mesh"),
                 meshes,
@@ -148,6 +183,7 @@ pub(super) fn spawn(
     role: Role,
     team: Handle<StandardMaterial>,
     transform: Transform,
+    style: crate::PieceStyle,
 ) -> Rig {
     let root = commands.spawn((transform, Visibility::Inherited)).id();
     let mut builder = Builder {
@@ -156,13 +192,90 @@ pub(super) fn spawn(
         team,
     };
     match role {
-        Role::Knight => horse::spawn(&mut builder, root),
-        Role::Pawn => spawn_biped(&mut builder, root, &kit.pawn),
-        Role::Bishop => spawn_biped(&mut builder, root, &kit.bishop),
-        Role::Queen => spawn_biped(&mut builder, root, &kit.queen),
-        Role::King => spawn_biped(&mut builder, root, &kit.king),
-        Role::Rook => rook::spawn(&mut builder, root),
+        Role::Knight => {
+            if style == crate::PieceStyle::GtaStreet {
+                lowrider::spawn(&mut builder, root)
+            } else {
+                horse::spawn(&mut builder, root)
+            }
+        }
+        Role::Pawn => spawn_biped(
+            &mut builder,
+            root,
+            if style == crate::PieceStyle::GtaStreet {
+                &kit.street_pawn
+            } else {
+                &kit.pawn
+            },
+        ),
+        Role::Bishop => spawn_biped(
+            &mut builder,
+            root,
+            if style == crate::PieceStyle::GtaStreet {
+                &kit.police_bishop
+            } else {
+                &kit.bishop
+            },
+        ),
+        Role::Queen => spawn_biped(
+            &mut builder,
+            root,
+            if style == crate::PieceStyle::GtaStreet {
+                &kit.street_queen
+            } else {
+                &kit.queen
+            },
+        ),
+        Role::King => spawn_biped(
+            &mut builder,
+            root,
+            if style == crate::PieceStyle::GtaStreet {
+                &kit.street_king
+            } else {
+                &kit.king
+            },
+        ),
+        Role::Rook => {
+            if style == crate::PieceStyle::GtaStreet {
+                mansion::spawn(&mut builder, root)
+            } else {
+                rook::spawn(&mut builder, root)
+            }
+        }
     }
+}
+
+pub(super) fn queen_muzzle(pose: Pose) -> Vec3 {
+    street_queen::muzzle(pose)
+}
+pub(super) fn queen_ejection(pose: Pose) -> Vec3 {
+    street_queen::ejection(pose)
+}
+
+pub(super) fn king_muzzle(pose: Pose) -> Vec3 {
+    street_king::muzzle(pose)
+}
+pub(super) fn king_ejection(pose: Pose) -> Vec3 {
+    street_king::ejection(pose)
+}
+pub(super) fn king_support(pose: Pose) -> Pose {
+    street_king::support(pose)
+}
+
+pub(super) fn police_muzzle(pose: Pose) -> Vec3 {
+    police_bishop::muzzle(pose)
+}
+
+pub(super) fn street_muzzle(pose: Pose) -> Vec3 {
+    street_pawn::muzzle(pose)
+}
+
+pub(super) fn lowrider_launch(pose: Pose) -> Vec3 {
+    lowrider::launch(pose)
+}
+
+pub(super) fn mansion_launch(pose: Pose) -> Vec3 {
+    mansion::launch(pose)
 }
 
 fn spawn_biped(builder: &mut Builder, root: Entity, skin: &SkinAssets) -> Rig {
@@ -205,5 +318,7 @@ fn spawn_biped(builder: &mut Builder, root: Entity, skin: &SkinAssets) -> Rig {
         cloth,
         retractable: false,
         hatch: None,
+        car: None,
+        mansion: None,
     }
 }

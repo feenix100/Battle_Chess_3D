@@ -1,6 +1,14 @@
 # Game assets
 
-These nine meshes are embedded in the executable by the Rust source. They contain
+The optional GTA Street set adds original layered skins and animated props in
+`street_pawn/`, `lowrider/`, `mansion/`, `police_bishop/`, `street_king/`, and
+`street_queen/`. Each directory
+includes its STL sources, editable Blender scene, and procedural generator.
+The police bishop uses the shared biped rig with two tethered taser darts.
+The king carries a shotgun diagonally on his shoulder and lowers it for a spread blast.
+The queen has a crop top, pleated skirt, long ponytail, and sweeping mini-Uzi burst.
+
+The Original set's nine meshes are embedded in the executable by the Rust source. They contain
 geometry, surface normals, and, where applicable, joint indices and weights for
 the character rigs.
 

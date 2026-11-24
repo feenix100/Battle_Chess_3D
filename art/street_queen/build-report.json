@@ -1,0 +1,123 @@
+{
+  "parts": {
+    "team": {
+      "vertices": 2388,
+      "triangles": 4656,
+      "bytes": 170656
+    },
+    "skin": {
+      "vertices": 4636,
+      "triangles": 9152,
+      "bytes": 332512
+    },
+    "hair": {
+      "vertices": 1030,
+      "triangles": 2020,
+      "bytes": 73840
+    },
+    "dark": {
+      "vertices": 2210,
+      "triangles": 4300,
+      "bytes": 157840
+    },
+    "gold": {
+      "vertices": 6297,
+      "triangles": 12434,
+      "bytes": 451624
+    },
+    "steel": {
+      "vertices": 1584,
+      "triangles": 3044,
+      "bytes": 112720
+    },
+    "rose": {
+      "vertices": 1446,
+      "triangles": 2844,
+      "bytes": 103696
+    },
+    "ivory": {
+      "vertices": 1168,
+      "triangles": 2252,
+      "bytes": 83248
+    }
+  },
+  "rest_joints": [
+    [
+      0.0,
+      0.605,
+      0.01
+    ],
+    [
+      0.0,
+      1.06,
+      0.0
+    ],
+    [
+      0.235,
+      0.69,
+      -0.075
+    ],
+    [
+      -0.182,
+      0.985,
+      0.0
+    ],
+    [
+      -0.25,
+      0.82,
+      0.02
+    ],
+    [
+      0.182,
+      0.985,
+      0.0
+    ],
+    [
+      0.225,
+      0.805,
+      -0.01
+    ],
+    [
+      -0.085,
+      0.605,
+      0.012
+    ],
+    [
+      -0.094,
+      0.305,
+      -0.005
+    ],
+    [
+      0.085,
+      0.605,
+      0.012
+    ],
+    [
+      0.094,
+      0.305,
+      -0.005
+    ],
+    [
+      0.0,
+      0.675,
+      0.01
+    ]
+  ],
+  "muzzle": [
+    0.235,
+    0.6317595594018234,
+    -0.4007806794132063
+  ],
+  "ejection": [
+    0.283,
+    0.7318569491175743,
+    -0.14989322940405755
+  ],
+  "carry_tilt": -0.35,
+  "source": "Original adult queen, cropped shirt, pleated skirt, long ponytail and mini Uzi.",
+  "combined": {
+    "vertices": 20759,
+    "triangles": 40702,
+    "bytes": 1485016
+  }
+}

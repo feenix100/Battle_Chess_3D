@@ -1,0 +1,106 @@
+{
+  "team": {
+    "vertices": 2372,
+    "triangles": 4648,
+    "bytes": 169776
+  },
+  "skin": {
+    "vertices": 3728,
+    "triangles": 7372,
+    "bytes": 267552
+  },
+  "denim": {
+    "vertices": 840,
+    "triangles": 1644,
+    "bytes": 60192
+  },
+  "ivory": {
+    "vertices": 800,
+    "triangles": 1572,
+    "bytes": 57408
+  },
+  "gold": {
+    "vertices": 2620,
+    "triangles": 5220,
+    "bytes": 188544
+  },
+  "dark": {
+    "vertices": 1930,
+    "triangles": 3736,
+    "bytes": 137616
+  },
+  "stitch": {
+    "vertices": 1008,
+    "triangles": 1964,
+    "bytes": 72096
+  },
+  "combined": {
+    "vertices": 13298,
+    "triangles": 26156,
+    "bytes": 952320
+  },
+  "rest_joints": [
+    [
+      0.0,
+      0.555,
+      0.01
+    ],
+    [
+      0.0,
+      1.016,
+      0.0
+    ],
+    [
+      0.255,
+      0.646,
+      -0.09
+    ],
+    [
+      -0.205,
+      0.916,
+      0.005
+    ],
+    [
+      -0.252,
+      0.748,
+      -0.012
+    ],
+    [
+      0.205,
+      0.916,
+      0.005
+    ],
+    [
+      0.252,
+      0.748,
+      -0.012
+    ],
+    [
+      -0.096,
+      0.55,
+      0.016
+    ],
+    [
+      -0.119,
+      0.292,
+      -0.01
+    ],
+    [
+      0.096,
+      0.55,
+      0.016
+    ],
+    [
+      0.119,
+      0.292,
+      -0.01
+    ]
+  ],
+  "muzzle": [
+    0.255,
+    0.674,
+    -0.361
+  ],
+  "coordinates": "STL and Blender: Z up, +Y forward. BCM1: Y up, -Z forward.",
+  "source": "Original procedural sculpt; no downloaded character geometry."
+}

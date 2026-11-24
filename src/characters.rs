@@ -15,11 +15,12 @@ use self::animation::{KnightRoute, Pose};
 use self::model::{Joint, Rig};
 use crate::game::GameOutcome;
 use crate::{
-    Appearance, BattleGame, SceneHandles, SceneSync, capture_square, display_move_to, move_from,
-    square_from_world, square_world,
+    Appearance, BattleGame, PieceStyle, SceneHandles, SceneSync, capture_square, display_move_to,
+    move_from, square_from_world, square_world,
 };
 
-pub(crate) use model::CharacterAssets;
+pub(crate) use model::MansionMolotovAssets;
+pub(crate) use model::{CharacterAssets, LowriderArm, LowriderDroneAssets, LowriderRotor};
 
 pub(crate) const BOARD_SCALE: f32 = 0.73;
 const TRAY_SCALE: f32 = 0.42;
@@ -55,6 +56,7 @@ pub(crate) struct CheckmateCelebration {
 
 struct Visual {
     piece: Piece,
+    style: PieceStyle,
     rig: Rig,
     rest: Quat,
     animated: bool,
@@ -62,6 +64,7 @@ struct Visual {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct TrayView {
+    style: PieceStyle,
     visible: bool,
     upright: bool,
     knight_orientation: i32,
@@ -115,7 +118,21 @@ impl CharacterScene {
             from: origin,
             role,
             elapsed: 0.0,
-            duration: animation::move_seconds(role, distance),
+            duration: if role == Role::Knight
+                && self.board[to_index]
+                    .as_ref()
+                    .is_some_and(|v| v.style == PieceStyle::GtaStreet)
+            {
+                1.25
+            } else if role == Role::Rook
+                && self.board[to_index]
+                    .as_ref()
+                    .is_some_and(|v| v.style == PieceStyle::GtaStreet)
+            {
+                animation::mansion_move_seconds(distance)
+            } else {
+                animation::move_seconds(role, distance)
+            },
             distance,
             lane_offset,
         });
@@ -205,12 +222,68 @@ fn battle_pose(
     square: Square,
     role: Role,
     rest: Quat,
+    style: PieceStyle,
 ) -> Option<(Quat, Pose)> {
     let battle = battle?;
     let here = square_world(square);
     if square == battle.attacker {
         let facing = animation::heading(here, square_world(battle.victim));
         let elapsed = battle.elapsed;
+        if role == Role::Queen && style == PieceStyle::GtaStreet {
+            let distance = here.distance(square_world(battle.victim));
+            let height = if battle.movement.capture() == Some(Role::Knight) {
+                0.28
+            } else {
+                0.56
+            };
+            let aim = crate::projectiles::queen_smg_aim(distance, height);
+            return Some((
+                rest.slerp(facing, (elapsed / 0.16).clamp(0.0, 1.0)),
+                animation::street_queen_attack(elapsed, distance, aim),
+            ));
+        }
+        if role == Role::King && style == PieceStyle::GtaStreet {
+            let height = if battle.movement.capture() == Some(Role::Knight) {
+                0.28
+            } else {
+                0.74
+            };
+            let aim = crate::projectiles::king_shotgun_aim(
+                here.distance(square_world(battle.victim)),
+                height,
+            );
+            return Some((
+                rest.slerp(facing, (elapsed / 0.16).clamp(0.0, 1.0)),
+                animation::street_king_attack(elapsed, aim),
+            ));
+        }
+        if role == Role::Bishop && style == PieceStyle::GtaStreet {
+            let flight = crate::projectiles::taser_flight_seconds(
+                here.distance(square_world(battle.victim)),
+            );
+            return Some((
+                rest.slerp(facing, (elapsed / 0.16).clamp(0.0, 1.0)),
+                animation::police_attack(elapsed, flight),
+            ));
+        }
+        if role == Role::Rook && style == PieceStyle::GtaStreet {
+            return Some((
+                rest.slerp(facing, (elapsed / 0.18).clamp(0.0, 1.0)),
+                animation::mansion_attack(elapsed),
+            ));
+        }
+        if role == Role::Knight && style == PieceStyle::GtaStreet {
+            return Some((
+                rest.slerp(facing, (elapsed / 0.16).clamp(0.0, 1.0)),
+                animation::lowrider_attack(elapsed),
+            ));
+        }
+        if role == Role::Pawn && style == PieceStyle::GtaStreet {
+            return Some((
+                rest.slerp(facing, (elapsed / 0.16).clamp(0.0, 1.0)),
+                animation::street_attack(elapsed),
+            ));
+        }
         let duration = match role {
             Role::Pawn => 0.47,
             Role::Knight => 0.71,
@@ -225,10 +298,58 @@ fn battle_pose(
     } else if square == battle.victim {
         let facing = animation::heading(here, square_world(battle.attacker));
         let turn = rest.slerp(facing, (battle.elapsed / 0.21).clamp(0.0, 1.0));
-        let pose = battle
+        let mut pose = battle
             .since_hit
-            .map(|t| animation::captured(role, (t / 0.46).min(1.0)))
+            .map(|t| {
+                if style == PieceStyle::GtaStreet && battle.movement.role() == Role::Bishop {
+                    return animation::police_tased(role, t);
+                }
+                if role == Role::Knight && style == PieceStyle::GtaStreet {
+                    animation::lowrider_disabled((t / 0.46).min(1.0))
+                } else if role == Role::Rook && style == PieceStyle::GtaStreet {
+                    animation::mansion_disabled((t / 0.46).min(1.0))
+                } else {
+                    animation::captured(role, (t / 0.46).min(1.0))
+                }
+            })
             .unwrap_or_default();
+        if battle.since_hit.is_none()
+            && battle.movement.role() == Role::Queen
+            && style == PieceStyle::GtaStreet
+        {
+            let distance = here.distance(square_world(battle.attacker));
+            for shot in 0..crate::projectiles::QUEEN_SMG_ROUNDS - 1 {
+                let age = battle.elapsed
+                    - crate::projectiles::QUEEN_SMG_LAUNCH
+                    - crate::projectiles::queen_smg_flight(distance)
+                    - shot as f32 * crate::projectiles::QUEEN_SMG_INTERVAL;
+                if (0.0..0.055).contains(&age) {
+                    let hit = (PI * age / 0.055).sin();
+                    let strength = if matches!(role, Role::Knight | Role::Rook) {
+                        0.25
+                    } else {
+                        1.0
+                    };
+                    pose.body.x -= 0.060 * hit * strength;
+                    pose.offset.z += 0.009 * hit * strength;
+                }
+            }
+        }
+        if battle.since_hit.is_none()
+            && battle.movement.role() == Role::Pawn
+            && style == PieceStyle::GtaStreet
+        {
+            let timing = crate::projectiles::street_profile();
+            for shot in 0..2 {
+                let age =
+                    battle.elapsed - timing.delay - timing.flight - shot as f32 * timing.interval;
+                if (0.0..0.12).contains(&age) {
+                    let hit = (PI * age / 0.12).sin();
+                    pose.body.x -= 0.11 * hit;
+                    pose.offset.z += 0.016 * hit;
+                }
+            }
+        }
         Some((turn, pose))
     } else {
         None
@@ -330,63 +451,117 @@ pub(crate) fn update_characters(
             piece.role = travel.role;
         }
         let rest = rest_heading(piece, appearance.knight_orientation);
-        let action =
-            if let Some(action) = battle_pose(scene.battle.as_ref(), square, piece.role, rest) {
-                Some(action)
-            } else if let Some(travel) = travel {
-                let (t, extension) = if piece.role == Role::Rook {
-                    animation::rook_walk_phase(travel.elapsed, travel.duration)
-                } else {
-                    ((travel.elapsed / travel.duration).clamp(0.0, 1.0), 0.0)
-                };
-                let (path_position, facing, mut pose) = if piece.role == Role::Knight {
-                    KnightRoute::new(travel.from, position).sample(t)
-                } else {
-                    (
-                        animation::walk_position(travel.from, position, t),
-                        animation::heading(travel.from, position),
-                        animation::moving(piece.role, t, travel.distance),
-                    )
-                };
-                pose.extension = extension;
-                position = path_position;
-                position.z += travel.lane_offset * (PI * t).sin();
-                Some((rest.slerp(facing, animation::turn_fraction(t)), pose))
-            } else if let Some(defeat) = scene
-                .checkmate
-                .as_ref()
-                .filter(|defeat| defeat.loser == piece.color && defeat.elapsed >= 0.0)
-            {
-                Some((
-                    rest,
-                    animation::kneeling(piece.role, (defeat.elapsed / 0.85).min(1.0)),
-                ))
-            } else if let Some(YieldSpace { direction, amount }) = yielding[index] {
-                let crowded = (direction.x == 0.0 || direction.z == 0.0)
-                    && square_from_world(position + direction)
-                        .is_none_or(|neighbor| game.piece_at(neighbor).is_some());
-                let distance = if crowded {
-                    0.44
-                } else if matches!(piece.role, Role::Knight | Role::Rook) {
-                    0.70
-                } else {
-                    0.63
-                };
-                position += direction * amount * distance;
-                Some((
-                    rest,
-                    animation::yielding(piece.role, rest.inverse() * direction, amount),
-                ))
+        let action = if let Some(action) = battle_pose(
+            scene.battle.as_ref(),
+            square,
+            piece.role,
+            rest,
+            appearance.piece_style,
+        ) {
+            Some(action)
+        } else if let Some(travel) = travel {
+            let (t, extension) = if piece.role == Role::Rook {
+                animation::rook_walk_phase(travel.elapsed, travel.duration)
             } else {
-                None
+                ((travel.elapsed / travel.duration).clamp(0.0, 1.0), 0.0)
             };
+            let (path_position, facing, mut pose) = if piece.role == Role::Knight {
+                if appearance.piece_style == PieceStyle::GtaStreet {
+                    animation::lowrider_route(travel.from, position, t)
+                } else {
+                    KnightRoute::new(travel.from, position).sample(t)
+                }
+            } else {
+                (
+                    animation::walk_position(travel.from, position, t),
+                    animation::heading(travel.from, position),
+                    if piece.role == Role::Rook && appearance.piece_style == PieceStyle::GtaStreet {
+                        animation::mansion_moving(t, travel.distance, extension)
+                    } else if piece.role == Role::Pawn
+                        && appearance.piece_style == PieceStyle::GtaStreet
+                    {
+                        animation::street_moving(t, travel.distance)
+                    } else if piece.role == Role::Bishop
+                        && appearance.piece_style == PieceStyle::GtaStreet
+                    {
+                        animation::police_moving(t, travel.distance)
+                    } else if piece.role == Role::King
+                        && appearance.piece_style == PieceStyle::GtaStreet
+                    {
+                        animation::street_king_moving(t, travel.distance)
+                    } else if piece.role == Role::Queen
+                        && appearance.piece_style == PieceStyle::GtaStreet
+                    {
+                        animation::street_queen_moving(t, travel.distance)
+                    } else {
+                        animation::moving(piece.role, t, travel.distance)
+                    },
+                )
+            };
+            if piece.role == Role::Rook && appearance.piece_style == PieceStyle::Original {
+                pose.extension = extension;
+            }
+            position = path_position;
+            position.z += travel.lane_offset * (PI * t).sin();
+            Some((rest.slerp(facing, animation::turn_fraction(t)), pose))
+        } else if let Some(defeat) = scene
+            .checkmate
+            .as_ref()
+            .filter(|defeat| defeat.loser == piece.color && defeat.elapsed >= 0.0)
+        {
+            Some((
+                rest,
+                if piece.role == Role::Knight && appearance.piece_style == PieceStyle::GtaStreet {
+                    animation::lowrider_disabled((defeat.elapsed / 0.85).min(1.0))
+                } else if piece.role == Role::Rook
+                    && appearance.piece_style == PieceStyle::GtaStreet
+                {
+                    animation::mansion_disabled((defeat.elapsed / 0.85).min(1.0))
+                } else {
+                    if piece.role == Role::King && appearance.piece_style == PieceStyle::GtaStreet {
+                        animation::street_king_kneeling((defeat.elapsed / 0.85).min(1.0))
+                    } else {
+                        animation::kneeling(piece.role, (defeat.elapsed / 0.85).min(1.0))
+                    }
+                },
+            ))
+        } else if let Some(YieldSpace { direction, amount }) = yielding[index] {
+            let crowded = (direction.x == 0.0 || direction.z == 0.0)
+                && square_from_world(position + direction)
+                    .is_none_or(|neighbor| game.piece_at(neighbor).is_some());
+            let distance = if crowded {
+                0.44
+            } else if matches!(piece.role, Role::Knight | Role::Rook) {
+                0.70
+            } else {
+                0.63
+            };
+            position += direction * amount * distance;
+            Some((
+                rest,
+                if piece.role == Role::Rook && appearance.piece_style == PieceStyle::GtaStreet {
+                    animation::mansion_yielding(amount)
+                } else if piece.role == Role::King
+                    && appearance.piece_style == PieceStyle::GtaStreet
+                {
+                    animation::street_king_yielding(rest.inverse() * direction, amount)
+                } else {
+                    animation::yielding(piece.role, rest.inverse() * direction, amount)
+                },
+            ))
+        } else {
+            None
+        };
 
         let slot = &mut scene.board[index];
         let (heading, pose) = action.unwrap_or((rest, Pose::default()));
         let transform = Transform::from_translation(position)
             .with_rotation(heading)
             .with_scale(Vec3::splat(BOARD_SCALE));
-        if let Some(visual) = slot.as_mut().filter(|visual| visual.piece == piece) {
+        if let Some(visual) = slot
+            .as_mut()
+            .filter(|visual| visual.piece == piece && visual.style == appearance.piece_style)
+        {
             if action.is_some() || visual.animated || visual.rest != rest {
                 if let Ok(mut root) = roots.get_mut(visual.rig.root) {
                     *root = transform;
@@ -405,9 +580,11 @@ pub(crate) fn update_characters(
                 piece.role,
                 team_material(piece, &handles),
                 transform,
+                appearance.piece_style,
             );
             *slot = Some(Visual {
                 piece,
+                style: appearance.piece_style,
                 rig,
                 rest,
                 animated: action.is_some(),
@@ -416,6 +593,7 @@ pub(crate) fn update_characters(
     }
 
     let tray_view = TrayView {
+        style: appearance.piece_style,
         visible: appearance.show_captured,
         upright: appearance.captured_upright,
         knight_orientation: appearance.knight_orientation,
@@ -469,9 +647,40 @@ fn update_tray(
             piece.role,
             team_material(piece, handles),
             transform,
+            view.style,
         );
         scene.tray_entities.push(rig.root);
     }
     scene.tray_pieces = pieces;
     scene.tray_view = Some(view);
+}
+
+pub(crate) fn street_pawn_muzzle(seconds: f32) -> Vec3 {
+    model::street_muzzle(animation::street_attack(seconds)) * BOARD_SCALE
+}
+
+pub(crate) fn lowrider_launch(seconds: f32) -> Vec3 {
+    model::lowrider_launch(animation::lowrider_attack(seconds)) * BOARD_SCALE
+}
+
+pub(crate) fn mansion_launch(seconds: f32) -> Vec3 {
+    model::mansion_launch(animation::mansion_attack(seconds)) * BOARD_SCALE
+}
+
+pub(crate) fn police_muzzle(seconds: f32, flight: f32) -> Vec3 {
+    model::police_muzzle(animation::police_attack(seconds, flight)) * BOARD_SCALE
+}
+
+pub(crate) fn king_muzzle(seconds: f32, aim: f32) -> Vec3 {
+    model::king_muzzle(animation::street_king_attack(seconds, aim)) * BOARD_SCALE
+}
+pub(crate) fn king_ejection(seconds: f32, aim: f32) -> Vec3 {
+    model::king_ejection(animation::street_king_attack(seconds, aim)) * BOARD_SCALE
+}
+
+pub(crate) fn queen_muzzle(seconds: f32, distance: f32, aim: f32) -> Vec3 {
+    model::queen_muzzle(animation::street_queen_attack(seconds, distance, aim)) * BOARD_SCALE
+}
+pub(crate) fn queen_ejection(seconds: f32, distance: f32, aim: f32) -> Vec3 {
+    model::queen_ejection(animation::street_queen_attack(seconds, distance, aim)) * BOARD_SCALE
 }

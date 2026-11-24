@@ -16,6 +16,7 @@ pub(super) struct SkinAssets {
     mesh: Handle<Mesh>,
     bindposes: Handle<SkinnedMeshInverseBindposes>,
     pub rest: Vec<Vec3>,
+    layers: Vec<(Handle<Mesh>, Handle<StandardMaterial>)>,
 }
 
 impl Default for SkinAssets {
@@ -24,6 +25,7 @@ impl Default for SkinAssets {
             mesh: Handle::default(),
             bindposes: Handle::default(),
             rest: vec![Vec3::ZERO; JOINT_COUNT],
+            layers: Vec::new(),
         }
     }
 }
@@ -43,7 +45,22 @@ impl SkinAssets {
                     .collect::<Vec<_>>(),
             ),
             rest,
+            layers: Vec::new(),
         }
+    }
+
+    pub fn add_layer(
+        &mut self,
+        bytes: &[u8],
+        material: Handle<StandardMaterial>,
+        meshes: &mut Assets<Mesh>,
+    ) {
+        let (mesh, rest) = unpack(bytes);
+        assert_eq!(
+            rest, self.rest,
+            "material layers must use the same bind pose"
+        );
+        self.layers.push((meshes.add(mesh), material));
     }
 
     pub fn spawn(
@@ -54,17 +71,21 @@ impl SkinAssets {
         joints: Vec<Entity>,
     ) {
         assert_eq!(joints.len(), self.rest.len());
-        commands.spawn((
-            Mesh3d(self.mesh.clone()),
-            MeshMaterial3d(material),
-            Transform::IDENTITY,
-            SkinnedMesh {
-                inverse_bindposes: self.bindposes.clone(),
-                joints,
-            },
-            DynamicSkinnedMeshBounds,
-            ChildOf(parent),
-        ));
+        for (mesh, material) in std::iter::once((&self.mesh, &material))
+            .chain(self.layers.iter().map(|(mesh, surface)| (mesh, surface)))
+        {
+            commands.spawn((
+                Mesh3d(mesh.clone()),
+                MeshMaterial3d(material.clone()),
+                Transform::IDENTITY,
+                SkinnedMesh {
+                    inverse_bindposes: self.bindposes.clone(),
+                    joints: joints.clone(),
+                },
+                DynamicSkinnedMeshBounds,
+                ChildOf(parent),
+            ));
+        }
     }
 }
 

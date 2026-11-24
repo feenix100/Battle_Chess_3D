@@ -1,0 +1,112 @@
+{
+  "parts": {
+    "team": {
+      "vertices": 1730,
+      "triangles": 3424,
+      "bytes": 124272
+    },
+    "skin": {
+      "vertices": 2832,
+      "triangles": 5588,
+      "bytes": 203136
+    },
+    "navy": {
+      "vertices": 833,
+      "triangles": 1603,
+      "bytes": 59364
+    },
+    "dark": {
+      "vertices": 1794,
+      "triangles": 3484,
+      "bytes": 128064
+    },
+    "gold": {
+      "vertices": 1444,
+      "triangles": 2796,
+      "bytes": 103008
+    },
+    "steel": {
+      "vertices": 2032,
+      "triangles": 3964,
+      "bytes": 145248
+    },
+    "yellow": {
+      "vertices": 192,
+      "triangles": 376,
+      "bytes": 13872
+    },
+    "visor": {
+      "vertices": 288,
+      "triangles": 564,
+      "bytes": 20736
+    }
+  },
+  "rest_joints": [
+    [
+      0.0,
+      0.585,
+      0.008
+    ],
+    [
+      0.0,
+      1.065,
+      0.0
+    ],
+    [
+      0.248,
+      0.678,
+      -0.073
+    ],
+    [
+      -0.197,
+      0.967,
+      0.0
+    ],
+    [
+      -0.236,
+      0.787,
+      -0.012
+    ],
+    [
+      0.197,
+      0.967,
+      0.0
+    ],
+    [
+      0.236,
+      0.787,
+      -0.012
+    ],
+    [
+      -0.092,
+      0.582,
+      0.01
+    ],
+    [
+      -0.105,
+      0.306,
+      -0.006
+    ],
+    [
+      0.092,
+      0.582,
+      0.01
+    ],
+    [
+      0.105,
+      0.306,
+      -0.006
+    ]
+  ],
+  "muzzle": [
+    0.248,
+    0.716,
+    -0.302
+  ],
+  "source": "Original police bishop geometry.",
+  "combined": {
+    "vertices": 11145,
+    "triangles": 21799,
+    "bytes": 796692
+  }
+}

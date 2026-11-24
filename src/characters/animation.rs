@@ -4,16 +4,27 @@ use bevy::prelude::*;
 use shakmaty::Role;
 
 #[derive(Clone, Copy, Default)]
+pub(super) struct VehiclePose {
+    pub wheel_roll: f32,
+    pub steering: f32,
+    pub trunk: f32,
+}
+
+#[derive(Clone, Copy, Default)]
 pub(super) struct Pose {
     pub offset: Vec3,
     pub body: Vec3,
     pub head: Vec3,
     pub arms: [Vec3; 2],
+    pub arm_yaw: [f32; 2],
     pub legs: [Vec2; 4],
     pub weapon: f32,
+    pub weapon_yaw: f32,
     pub cloth: f32,
     pub extension: f32,
+    pub leg_extension: f32,
     pub hatch: f32,
+    pub vehicle: VehiclePose,
 }
 
 impl Pose {
@@ -23,11 +34,19 @@ impl Pose {
             body: self.body.lerp(next.body, t),
             head: self.head.lerp(next.head, t),
             arms: std::array::from_fn(|i| self.arms[i].lerp(next.arms[i], t)),
+            arm_yaw: std::array::from_fn(|i| self.arm_yaw[i].lerp(next.arm_yaw[i], t)),
             legs: std::array::from_fn(|i| self.legs[i].lerp(next.legs[i], t)),
             weapon: self.weapon.lerp(next.weapon, t),
+            weapon_yaw: self.weapon_yaw.lerp(next.weapon_yaw, t),
             cloth: self.cloth.lerp(next.cloth, t),
             extension: self.extension.lerp(next.extension, t),
+            leg_extension: self.leg_extension.lerp(next.leg_extension, t),
             hatch: self.hatch.lerp(next.hatch, t),
+            vehicle: VehiclePose {
+                wheel_roll: self.vehicle.wheel_roll.lerp(next.vehicle.wheel_roll, t),
+                steering: self.vehicle.steering.lerp(next.vehicle.steering, t),
+                trunk: self.vehicle.trunk.lerp(next.vehicle.trunk, t),
+            },
         }
     }
 }
@@ -199,6 +218,135 @@ fn jump(t: f32, height: f32) -> Pose {
     )
 }
 
+/// Drive along the knight's two legs; steer at the corner and keep tires planted.
+pub(super) fn lowrider_route(from: Vec3, to: Vec3, t: f32) -> (Vec3, Quat, Pose) {
+    let route = KnightRoute::new(from, to);
+    let first = heading(from, route.corner);
+    let second = heading(route.corner, to);
+    let (position, facing, distance, steering) = if t < 0.51 {
+        let u = ease(t / 0.51);
+        (
+            from.lerp(route.corner, u),
+            first,
+            from.distance(route.corner) * u,
+            0.0,
+        )
+    } else if t < 0.69 {
+        let u = ease((t - 0.51) / 0.18);
+        (
+            route.corner,
+            first.slerp(second, u),
+            from.distance(route.corner),
+            0.48 * (PI * u).sin()
+                * (first.inverse() * second)
+                    .to_euler(EulerRot::YXZ)
+                    .0
+                    .signum(),
+        )
+    } else {
+        let u = ease((t - 0.69) / 0.31);
+        (
+            route.corner.lerp(to, u),
+            second,
+            from.distance(route.corner) + route.corner.distance(to) * u,
+            0.0,
+        )
+    };
+    let envelope = ease(t * 9.0) * ease((1.0 - t) * 9.0);
+    let bounce = 0.012 * (t * TAU * 3.0).sin() * envelope;
+    let pose = Pose {
+        offset: Vec3::Y * (0.015 * envelope + bounce),
+        body: Vec3::new(
+            0.025 * (t * TAU).sin() * envelope,
+            -steering * 0.06,
+            steering * 0.06,
+        ),
+        vehicle: VehiclePose {
+            wheel_roll: -distance / (0.133 * crate::characters::BOARD_SCALE),
+            steering,
+            trunk: 0.0,
+        },
+        ..default()
+    };
+    (position, facing, pose)
+}
+
+pub(super) fn lowrider_attack(seconds: f32) -> Pose {
+    let bounce = 0.018 * (PI * (seconds / 0.42).clamp(0.0, 1.0)).sin();
+    Pose {
+        offset: Vec3::Y * bounce,
+        body: Vec3::new(bounce * 0.7, 0.0, 0.0),
+        vehicle: VehiclePose {
+            trunk: crate::projectiles::lowrider_trunk_fraction(seconds),
+            ..default()
+        },
+        ..default()
+    }
+}
+
+pub(super) fn lowrider_disabled(t: f32) -> Pose {
+    let down = ease(t);
+    Pose {
+        offset: Vec3::Y * (-0.035 * down),
+        body: Vec3::new(-0.035 * down, 0.0, 0.10 * down),
+        vehicle: VehiclePose {
+            steering: 0.20 * down,
+            ..default()
+        },
+        ..default()
+    }
+}
+
+pub(super) fn mansion_attack(seconds: f32) -> Pose {
+    let recoil = 0.008 * (PI * ((seconds - 0.35) / 0.26).clamp(0.0, 1.0)).sin();
+    Pose {
+        offset: Vec3::Y * recoil,
+        body: Vec3::new(recoil * 0.8, 0.0, 0.0),
+        hatch: crate::projectiles::mansion_hatch_fraction(seconds),
+        ..default()
+    }
+}
+pub(super) fn mansion_move_seconds(distance: f32) -> f32 {
+    0.36 + (0.40 + distance * 0.20).min(1.80)
+}
+pub(super) fn mansion_moving(t: f32, distance: f32, deploy: f32) -> Pose {
+    let weight = ease(t * 8.0) * ease((1.0 - t) * 8.0);
+    let phase = t * TAU * (distance * 0.85).clamp(1.0, 5.0);
+    let feet: [Vec2; 2] = std::array::from_fn(|i| {
+        let p = phase + i as f32 * PI;
+        Vec2::new(0.82 * p.cos() * weight, p.sin().max(0.0) * weight)
+    });
+    Pose {
+        offset: Vec3::Y * (0.008 * phase.sin().abs() * weight),
+        body: Vec3::new(
+            0.012 * phase.cos() * weight,
+            0.0,
+            0.015 * phase.sin() * weight,
+        ),
+        legs: [feet[0], feet[1], Vec2::ZERO, Vec2::ZERO],
+        leg_extension: deploy,
+        extension: 0.06 * phase.sin().powi(2) * weight,
+        ..default()
+    }
+}
+pub(super) fn mansion_disabled(t: f32) -> Pose {
+    let t = ease(t);
+    Pose {
+        offset: Vec3::Y * (-0.010 * t),
+        body: Vec3::new(-0.025 * t, 0.0, 0.040 * t),
+        extension: 0.12 * t,
+        ..default()
+    }
+}
+pub(super) fn mansion_yielding(amount: f32) -> Pose {
+    Pose {
+        offset: Vec3::Y * (0.007 * amount),
+        body: Vec3::new(0.0, 0.04 * amount, 0.015 * amount),
+        extension: 0.07 * amount,
+        ..default()
+    }
+}
+
 pub(super) fn moving(role: Role, t: f32, distance: f32) -> Pose {
     let neutral = Pose::default();
     // Arm carriage and cadence vary by role even when the legs share a walk cycle.
@@ -232,6 +380,46 @@ pub(super) fn moving(role: Role, t: f32, distance: f32) -> Pose {
         ..neutral
     };
     neutral.blend(pose, weight)
+}
+
+pub(super) fn street_moving(t: f32, distance: f32) -> Pose {
+    let mut pose = moving(Role::Pawn, t, distance);
+    let envelope = ease(t * 7.0).min(ease((1.0 - t) * 6.0));
+    let step = (t * TAU * (distance * 1.02).clamp(0.90, 3.6)).sin();
+    pose.body.z = 0.065 * step * envelope;
+    pose.head.z = -0.035 * step * envelope;
+    pose.arms[1] *= 0.38;
+    pose.weapon = -pose.arms[1].x;
+    pose
+}
+
+/// Seconds are shared with the projectile profile, so each recoil matches a shot.
+pub(super) fn street_attack(seconds: f32) -> Pose {
+    let timing = crate::projectiles::street_profile();
+    let neutral = Pose::default();
+    let ready = Pose {
+        body: Vec3::new(0.035, 0.0, 0.0),
+        head: Vec3::new(-0.025, 0.0, 0.0),
+        arms: [Vec3::new(0.15, 0.10, 0.10), Vec3::new(1.06, 0.0, 0.12)],
+        weapon: -1.215,
+        ..neutral
+    };
+    let final_shot = timing.delay + (timing.count - 1) as f32 * timing.interval;
+    let recovery_start = final_shot + 0.12;
+    let strength =
+        ease(seconds / (timing.delay - 0.035)) * (1.0 - ease((seconds - recovery_start) / 0.28));
+    let mut pose = neutral.blend(ready, strength);
+    for shot in 0..timing.count {
+        let age = seconds - timing.delay - shot as f32 * timing.interval;
+        if (0.0..0.11).contains(&age) {
+            let kick = (PI * age / 0.11).sin() * if shot == 2 { 1.15 } else { 1.0 };
+            pose.offset.z += 0.014 * kick;
+            pose.arms[1].x += 0.065 * kick;
+            pose.weapon -= 0.065 * kick;
+            pose.body.x -= 0.025 * kick;
+        }
+    }
+    pose
 }
 
 pub(super) fn yielding(role: Role, direction: Vec3, amount: f32) -> Pose {
@@ -311,8 +499,10 @@ pub(super) fn yielding(role: Role, direction: Vec3, amount: f32) -> Pose {
             shoulder * direction.x * amount * 0.60,
         ),
         arms: [left_arm * amount, right_arm * amount],
+        arm_yaw: [0.0; 2],
         legs: [hips[0], hips[1], -hips[1], -hips[0]],
         weapon: weapon * amount,
+        weapon_yaw: 0.0,
         cloth: cloth * amount,
         extension: if role == Role::Rook {
             ease(amount / 0.65)
@@ -320,6 +510,8 @@ pub(super) fn yielding(role: Role, direction: Vec3, amount: f32) -> Pose {
             0.0
         },
         hatch: 0.0,
+        leg_extension: 0.0,
+        vehicle: VehiclePose::default(),
     }
 }
 
@@ -565,9 +757,13 @@ pub(super) fn captured(role: Role, t: f32) -> Pose {
             Vec2::new(-0.31, 0.87),
         ],
         weapon: 0.52,
+        weapon_yaw: 0.0,
         cloth: -0.25,
         extension: if role == Role::Rook { 0.10 } else { 0.0 },
         hatch: 0.0,
+        leg_extension: 0.0,
+        vehicle: VehiclePose::default(),
+        arm_yaw: [0.0; 2],
     };
     let buckle = Pose {
         body: recoil.lerp(fall, 0.56),
@@ -593,4 +789,163 @@ pub(super) fn heading(from: Vec3, to: Vec3) -> Quat {
 
 pub(super) fn turn_fraction(t: f32) -> f32 {
     ease(t * 6.0).min(ease((1.0 - t) * 5.0))
+}
+
+/// Patrol stride keeps the taser low and level instead of swinging the weapon.
+pub(super) fn police_moving(t: f32, distance: f32) -> Pose {
+    let mut pose = moving(Role::Bishop, t, distance);
+    pose.arms[1] *= 0.25;
+    pose.weapon = -pose.arms[1].x - pose.arms[1].z;
+    pose.body.z *= 0.45;
+    pose
+}
+pub(super) fn police_attack(seconds: f32, flight: f32) -> Pose {
+    let ready = Pose {
+        body: Vec3::new(0.025, 0.0, 0.0),
+        head: Vec3::new(-0.025, 0.0, 0.0),
+        arms: [Vec3::new(0.65, 0.15, 2.0), Vec3::new(1.02, 0.0, 0.13)],
+        weapon: -1.175,
+        ..default()
+    };
+    let recovery = 0.34 + flight + 0.42;
+    let strength = ease(seconds / 0.29) * (1.0 - ease((seconds - recovery) / 0.26));
+    let mut pose = Pose::default().blend(ready, strength);
+    let age = seconds - 0.34;
+    if (0.0..0.09).contains(&age) {
+        let kick = (PI * age / 0.09).sin();
+        pose.offset.z += 0.008 * kick;
+        pose.arms[1].x += 0.035 * kick;
+        pose.weapon -= 0.035 * kick;
+    }
+    pose
+}
+pub(super) fn police_tased(role: Role, age: f32) -> Pose {
+    if age < 0.42 {
+        let shake = (age * TAU * 19.0).sin() * (PI * (age / 0.42).clamp(0.0, 1.0)).sin();
+        if matches!(role, Role::Knight | Role::Rook) {
+            return Pose {
+                offset: Vec3::X * shake * 0.012,
+                ..default()
+            };
+        }
+        return Pose {
+            body: Vec3::new(-0.06, 0.0, shake * 0.025),
+            head: Vec3::new(-0.08, shake * 0.035, 0.0),
+            arms: [Vec3::new(0.24, -0.10, 0.16), Vec3::new(0.24, 0.10, 0.16)],
+            offset: Vec3::X * shake * 0.008,
+            ..default()
+        };
+    }
+    let t = ((age - 0.42) / 0.46).min(1.0);
+    match role {
+        Role::Knight => lowrider_disabled(t),
+        Role::Rook => mansion_disabled(t),
+        _ => captured(role, t),
+    }
+}
+
+/// The bind pose carries the shotgun diagonally against the shoulder.
+pub(super) fn street_king_moving(t: f32, distance: f32) -> Pose {
+    let mut pose = moving(Role::King, t, distance);
+    pose.arms[1] = Vec3::ZERO;
+    pose.arm_yaw[1] = 0.0;
+    pose.weapon = 0.0;
+    pose.body *= 0.40;
+    pose.head *= 0.50;
+    pose
+}
+pub(super) fn street_king_attack(seconds: f32, aim: f32) -> Pose {
+    let ready = super::model::king_support(Pose {
+        offset: Vec3::new(0.0, -0.012, 0.0),
+        body: Vec3::new(0.025, 0.0, 0.0),
+        head: Vec3::new(-0.035, 0.0, 0.0),
+        arms: [Vec3::ZERO, Vec3::new(0.0, 0.0, 0.20)],
+        weapon: 0.961 - aim,
+        weapon_yaw: PI,
+        legs: [
+            Vec2::new(0.10, -0.13),
+            Vec2::new(-0.04, -0.05),
+            Vec2::ZERO,
+            Vec2::ZERO,
+        ],
+        ..default()
+    });
+    let strength = ease((seconds - 0.08) / 0.48) * (1.0 - ease((seconds - 1.04) / 0.40));
+    let mut pose = Pose::default().blend(ready, strength);
+    let age = seconds - crate::projectiles::KING_SHOTGUN_LAUNCH;
+    if (0.0..0.18).contains(&age) {
+        let kick = (PI * age / 0.18).sin();
+        pose.offset.z += 0.040 * kick;
+        pose.body.x -= 0.045 * kick;
+        pose.head.x -= 0.040 * kick;
+        pose.arms[1].x += 0.06 * kick;
+        pose.weapon -= 0.08 * kick;
+    }
+    if strength > 0.999 {
+        pose = super::model::king_support(pose);
+    }
+    pose
+}
+pub(super) fn street_king_kneeling(t: f32) -> Pose {
+    let mut pose = kneeling(Role::King, t);
+    pose.arms[1] = Vec3::ZERO;
+    pose.weapon = 0.0;
+    pose
+}
+pub(super) fn street_king_yielding(direction: Vec3, amount: f32) -> Pose {
+    let mut pose = yielding(Role::King, direction, amount);
+    pose.arms[1] = Vec3::ZERO;
+    pose.weapon = 0.0;
+    pose.weapon_yaw = 0.0;
+    pose
+}
+
+pub(super) fn street_queen_moving(t: f32, distance: f32) -> Pose {
+    let mut pose = moving(Role::Queen, t, distance);
+    pose.arms[0] *= 0.18;
+    pose.arms[1] *= 0.22;
+    pose.weapon = -pose.arms[1].x - pose.arms[1].z;
+    pose.body *= 0.45;
+    pose.head *= 0.55;
+    pose.legs[0] *= 0.62;
+    pose.legs[1] *= 0.62;
+    pose.cloth = 0.055 * (t * TAU * 2.0).sin() * ease(t * 7.0) * ease((1.0 - t) * 6.0);
+    pose
+}
+pub(super) fn street_queen_attack(seconds: f32, distance: f32, aim: f32) -> Pose {
+    let launch = crate::projectiles::QUEEN_SMG_LAUNCH;
+    let interval = crate::projectiles::QUEEN_SMG_INTERVAL;
+    let last = launch + (crate::projectiles::QUEEN_SMG_ROUNDS - 1) as f32 * interval;
+    let phase = ((seconds - launch) / interval)
+        .clamp(0.0, (crate::projectiles::QUEEN_SMG_ROUNDS - 1) as f32);
+    let spread = crate::projectiles::queen_smg_spread(phase);
+    let ready = Pose {
+        offset: Vec3::new(0.0, -0.008, 0.0),
+        body: Vec3::new(0.035, 0.0, 0.0),
+        head: Vec3::new(-0.025, 0.0, 0.0),
+        arms: [Vec3::new(0.06, 0.04, 0.04), Vec3::new(1.0, 0.0, 0.12)],
+        arm_yaw: [0.0, -spread.x.atan2((distance - 0.35).max(0.4))],
+        weapon: -0.77 + aim,
+        legs: [
+            Vec2::new(0.06, -0.10),
+            Vec2::new(-0.04, -0.06),
+            Vec2::ZERO,
+            Vec2::ZERO,
+        ],
+        cloth: 0.025,
+        ..default()
+    };
+    let strength = ease(seconds / 0.38) * (1.0 - ease((seconds - last - 0.16) / 0.30));
+    let mut pose = Pose::default().blend(ready, strength);
+    for shot in 0..crate::projectiles::QUEEN_SMG_ROUNDS {
+        let age = seconds - launch - shot as f32 * interval;
+        if (0.0..0.055).contains(&age) {
+            let kick = (PI * age / 0.055).sin();
+            pose.offset.z += 0.011 * kick;
+            pose.body.x -= 0.016 * kick;
+            pose.arms[1].x += 0.030 * kick;
+            pose.weapon -= 0.015 * kick;
+        }
+    }
+    pose
 }

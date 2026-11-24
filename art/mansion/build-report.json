@@ -1,0 +1,297 @@
+{
+  "parts": {
+    "body-paint.mesh": {
+      "vertices": 1440,
+      "triangles": 2820,
+      "bytes": 68416
+    },
+    "body-stone.mesh": {
+      "vertices": 1152,
+      "triangles": 2248,
+      "bytes": 54640
+    },
+    "body-ivory.mesh": {
+      "vertices": 11088,
+      "triangles": 21700,
+      "bytes": 526528
+    },
+    "body-tile.mesh": {
+      "vertices": 294,
+      "triangles": 524,
+      "bytes": 13360
+    },
+    "body-glass.mesh": {
+      "vertices": 760,
+      "triangles": 1440,
+      "bytes": 35536
+    },
+    "body-iron.mesh": {
+      "vertices": 672,
+      "triangles": 1316,
+      "bytes": 31936
+    },
+    "body-gold.mesh": {
+      "vertices": 904,
+      "triangles": 1608,
+      "bytes": 41008
+    },
+    "body-wood.mesh": {
+      "vertices": 550,
+      "triangles": 1064,
+      "bytes": 25984
+    },
+    "body-green.mesh": {
+      "vertices": 16,
+      "triangles": 24,
+      "bytes": 688
+    },
+    "hatch-stone.mesh": {
+      "vertices": 32,
+      "triangles": 56,
+      "bytes": 1456
+    },
+    "hatch-tile.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "hatch-gold.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "gate-0-iron.mesh": {
+      "vertices": 104,
+      "triangles": 176,
+      "bytes": 4624
+    },
+    "gate-0-gold.mesh": {
+      "vertices": 276,
+      "triangles": 520,
+      "bytes": 12880
+    },
+    "gate-1-iron.mesh": {
+      "vertices": 104,
+      "triangles": 176,
+      "bytes": 4624
+    },
+    "gate-1-gold.mesh": {
+      "vertices": 276,
+      "triangles": 520,
+      "bytes": 12880
+    },
+    "bottle-gold.mesh": {
+      "vertices": 36,
+      "triangles": 60,
+      "bytes": 1600
+    },
+    "bottle-green.mesh": {
+      "vertices": 48,
+      "triangles": 92,
+      "bytes": 2272
+    },
+    "bottle-bottle-glass.mesh": {
+      "vertices": 196,
+      "triangles": 388,
+      "bytes": 9376
+    },
+    "bottle-label.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "wick-cloth.mesh": {
+      "vertices": 24,
+      "triangles": 44,
+      "bytes": 1120
+    },
+    "leg-0-upper-paint.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "leg-0-upper-stone.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "leg-0-upper-iron.mesh": {
+      "vertices": 40,
+      "triangles": 76,
+      "bytes": 1888
+    },
+    "leg-0-upper-gold.mesh": {
+      "vertices": 32,
+      "triangles": 60,
+      "bytes": 1504
+    },
+    "leg-0-lower-stone.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "leg-0-lower-iron.mesh": {
+      "vertices": 184,
+      "triangles": 352,
+      "bytes": 8656
+    },
+    "leg-0-lower-gold.mesh": {
+      "vertices": 88,
+      "triangles": 164,
+      "bytes": 4096
+    },
+    "leg-0-foot-paint.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "leg-0-foot-stone.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "leg-0-foot-iron.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "leg-0-foot-gold.mesh": {
+      "vertices": 384,
+      "triangles": 752,
+      "bytes": 18256
+    },
+    "leg-1-upper-paint.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "leg-1-upper-stone.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "leg-1-upper-iron.mesh": {
+      "vertices": 40,
+      "triangles": 76,
+      "bytes": 1888
+    },
+    "leg-1-upper-gold.mesh": {
+      "vertices": 32,
+      "triangles": 60,
+      "bytes": 1504
+    },
+    "leg-1-lower-stone.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "leg-1-lower-iron.mesh": {
+      "vertices": 184,
+      "triangles": 352,
+      "bytes": 8656
+    },
+    "leg-1-lower-gold.mesh": {
+      "vertices": 88,
+      "triangles": 164,
+      "bytes": 4096
+    },
+    "leg-1-foot-paint.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "leg-1-foot-stone.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "leg-1-foot-iron.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "leg-1-foot-gold.mesh": {
+      "vertices": 384,
+      "triangles": 752,
+      "bytes": 18256
+    }
+  },
+  "pivots": {
+    "body": [
+      0,
+      0.43,
+      0
+    ],
+    "hatch": [
+      0,
+      0.887,
+      0.118
+    ],
+    "gate-0": [
+      -0.268,
+      0.085,
+      -0.405
+    ],
+    "gate-1": [
+      0.268,
+      0.085,
+      -0.405
+    ],
+    "bottle": [
+      0,
+      0,
+      0
+    ],
+    "wick": [
+      0,
+      0,
+      0
+    ],
+    "leg-0-upper": [
+      -0.18,
+      0.35,
+      0
+    ],
+    "leg-0-lower": [
+      -0.18,
+      0.2,
+      0
+    ],
+    "leg-0-foot": [
+      -0.18,
+      0.055,
+      0
+    ],
+    "leg-1-upper": [
+      0.18,
+      0.35,
+      0
+    ],
+    "leg-1-lower": [
+      0.18,
+      0.2,
+      0
+    ],
+    "leg-1-foot": [
+      0.18,
+      0.055,
+      0
+    ]
+  },
+  "launch": [
+    0,
+    1.035,
+    -0.025
+  ],
+  "source": "Original mansion and visual game prop geometry.",
+  "mansion": {
+    "vertices": 20468,
+    "triangles": 39632,
+    "bytes": 966832
+  },
+  "molotov": {
+    "vertices": 400,
+    "triangles": 772,
+    "bytes": 18880
+  }
+}

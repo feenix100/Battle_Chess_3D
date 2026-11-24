@@ -1,0 +1,343 @@
+{
+  "parts": {
+    "body-paint.mesh": {
+      "vertices": 2196,
+      "triangles": 4384,
+      "bytes": 105328
+    },
+    "body-chrome.mesh": {
+      "vertices": 4112,
+      "triangles": 7936,
+      "bytes": 193936
+    },
+    "body-gold.mesh": {
+      "vertices": 208,
+      "triangles": 376,
+      "bytes": 9520
+    },
+    "body-rubber.mesh": {
+      "vertices": 1052,
+      "triangles": 1472,
+      "bytes": 42928
+    },
+    "body-interior.mesh": {
+      "vertices": 768,
+      "triangles": 1504,
+      "bytes": 36496
+    },
+    "body-ivory.mesh": {
+      "vertices": 288,
+      "triangles": 556,
+      "bytes": 13600
+    },
+    "body-glass.mesh": {
+      "vertices": 224,
+      "triangles": 424,
+      "bytes": 10480
+    },
+    "body-red.mesh": {
+      "vertices": 216,
+      "triangles": 420,
+      "bytes": 10240
+    },
+    "body-cyan.mesh": {
+      "vertices": 24,
+      "triangles": 44,
+      "bytes": 1120
+    },
+    "trunk-paint.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "trunk-chrome.mesh": {
+      "vertices": 64,
+      "triangles": 116,
+      "bytes": 2944
+    },
+    "trunk-gold.mesh": {
+      "vertices": 48,
+      "triangles": 88,
+      "bytes": 2224
+    },
+    "trunk-interior.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "drone-chrome.mesh": {
+      "vertices": 144,
+      "triangles": 280,
+      "bytes": 6832
+    },
+    "drone-rubber.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "drone-glass.mesh": {
+      "vertices": 48,
+      "triangles": 92,
+      "bytes": 2272
+    },
+    "drone-cyan.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "wheel-0-chrome.mesh": {
+      "vertices": 496,
+      "triangles": 988,
+      "bytes": 23776
+    },
+    "wheel-0-gold.mesh": {
+      "vertices": 624,
+      "triangles": 1044,
+      "bytes": 27520
+    },
+    "wheel-0-rubber.mesh": {
+      "vertices": 1032,
+      "triangles": 1948,
+      "bytes": 48160
+    },
+    "wheel-0-ivory.mesh": {
+      "vertices": 448,
+      "triangles": 896,
+      "bytes": 21520
+    },
+    "wheel-1-chrome.mesh": {
+      "vertices": 496,
+      "triangles": 988,
+      "bytes": 23776
+    },
+    "wheel-1-gold.mesh": {
+      "vertices": 624,
+      "triangles": 1044,
+      "bytes": 27520
+    },
+    "wheel-1-rubber.mesh": {
+      "vertices": 1032,
+      "triangles": 1948,
+      "bytes": 48160
+    },
+    "wheel-1-ivory.mesh": {
+      "vertices": 448,
+      "triangles": 896,
+      "bytes": 21520
+    },
+    "wheel-2-chrome.mesh": {
+      "vertices": 496,
+      "triangles": 988,
+      "bytes": 23776
+    },
+    "wheel-2-gold.mesh": {
+      "vertices": 624,
+      "triangles": 1044,
+      "bytes": 27520
+    },
+    "wheel-2-rubber.mesh": {
+      "vertices": 1032,
+      "triangles": 1948,
+      "bytes": 48160
+    },
+    "wheel-2-ivory.mesh": {
+      "vertices": 448,
+      "triangles": 896,
+      "bytes": 21520
+    },
+    "wheel-3-chrome.mesh": {
+      "vertices": 496,
+      "triangles": 988,
+      "bytes": 23776
+    },
+    "wheel-3-gold.mesh": {
+      "vertices": 624,
+      "triangles": 1044,
+      "bytes": 27520
+    },
+    "wheel-3-rubber.mesh": {
+      "vertices": 1032,
+      "triangles": 1948,
+      "bytes": 48160
+    },
+    "wheel-3-ivory.mesh": {
+      "vertices": 448,
+      "triangles": 896,
+      "bytes": 21520
+    },
+    "arm-0-chrome.mesh": {
+      "vertices": 184,
+      "triangles": 364,
+      "bytes": 8800
+    },
+    "arm-0-rubber.mesh": {
+      "vertices": 64,
+      "triangles": 116,
+      "bytes": 2944
+    },
+    "arm-1-chrome.mesh": {
+      "vertices": 184,
+      "triangles": 364,
+      "bytes": 8800
+    },
+    "arm-1-rubber.mesh": {
+      "vertices": 64,
+      "triangles": 116,
+      "bytes": 2944
+    },
+    "arm-2-chrome.mesh": {
+      "vertices": 184,
+      "triangles": 364,
+      "bytes": 8800
+    },
+    "arm-2-rubber.mesh": {
+      "vertices": 64,
+      "triangles": 116,
+      "bytes": 2944
+    },
+    "arm-3-chrome.mesh": {
+      "vertices": 184,
+      "triangles": 364,
+      "bytes": 8800
+    },
+    "arm-3-rubber.mesh": {
+      "vertices": 64,
+      "triangles": 116,
+      "bytes": 2944
+    },
+    "rotor-0-gold.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "rotor-0-rubber.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "rotor-1-gold.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "rotor-1-rubber.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "rotor-2-gold.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "rotor-2-rubber.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "rotor-3-gold.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    },
+    "rotor-3-rubber.mesh": {
+      "vertices": 96,
+      "triangles": 188,
+      "bytes": 4576
+    }
+  },
+  "pivots": {
+    "body": [
+      0,
+      0.245,
+      0
+    ],
+    "trunk": [
+      0,
+      0.337,
+      0.272
+    ],
+    "drone": [
+      0,
+      0,
+      0
+    ],
+    "wheel-0": [
+      -0.294,
+      0.137,
+      -0.355
+    ],
+    "wheel-1": [
+      0.294,
+      0.137,
+      -0.355
+    ],
+    "wheel-2": [
+      -0.294,
+      0.137,
+      0.355
+    ],
+    "wheel-3": [
+      0.294,
+      0.137,
+      0.355
+    ],
+    "arm-0": [
+      -0.025,
+      0.014,
+      -0.022
+    ],
+    "arm-1": [
+      0.025,
+      0.014,
+      -0.022
+    ],
+    "arm-2": [
+      -0.025,
+      0.014,
+      0.022
+    ],
+    "arm-3": [
+      0.025,
+      0.014,
+      0.022
+    ],
+    "rotor-0": [
+      -0.091,
+      0.026,
+      -0.071
+    ],
+    "rotor-1": [
+      0.091,
+      0.026,
+      -0.071
+    ],
+    "rotor-2": [
+      -0.091,
+      0.026,
+      0.071
+    ],
+    "rotor-3": [
+      0.091,
+      0.026,
+      0.071
+    ]
+  },
+  "bay": [
+    0,
+    0.235,
+    0.423
+  ],
+  "source": "Original procedural geometry; no downloaded vehicle or drone assets.",
+  "car": {
+    "vertices": 19792,
+    "triangles": 37200,
+    "bytes": 921424
+  },
+  "drone": {
+    "vertices": 2144,
+    "triangles": 4172,
+    "bytes": 101536
+  },
+  "runtime_meshes": 49
+}

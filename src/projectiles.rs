@@ -15,6 +15,17 @@ mod bomb;
 mod cannon;
 mod drone;
 mod lightning;
+mod lowrider;
+mod molotov;
+mod shotgun;
+mod smg;
+pub(crate) use smg::{
+    INTERVAL as QUEEN_SMG_INTERVAL, LAUNCH as QUEEN_SMG_LAUNCH, ROUNDS as QUEEN_SMG_ROUNDS,
+    SmgEffect, aim_pitch as queen_smg_aim, animate_smg, flight_seconds as queen_smg_flight,
+    spread as queen_smg_spread,
+};
+mod street;
+mod taser;
 use artillery::ArtilleryMeshes;
 pub(crate) use artillery::animate_artillery_smoke;
 use bomb::BombMeshes;
@@ -27,6 +38,16 @@ pub(crate) use drone::{
 };
 use lightning::LightningMeshes;
 pub(super) use lightning::animate_lightning;
+pub(crate) use lowrider::{animate_lowrider_drones, trunk_fraction as lowrider_trunk_fraction};
+#[cfg(test)]
+pub(crate) use molotov::MolotovPart;
+pub(crate) use molotov::{MolotovFire, animate_molotov, hatch_fraction as mansion_hatch_fraction};
+pub(crate) use shotgun::{
+    LAUNCH as KING_SHOTGUN_LAUNCH, ShotgunCloud, aim_pitch as king_shotgun_aim, animate_shotgun,
+};
+#[cfg(test)]
+pub(crate) use taser::TaserPart;
+pub(crate) use taser::{TaserCircuit, animate_taser, flight_seconds as taser_flight_seconds};
 
 pub(super) const ATTACK_ROLES: [Role; 6] = [
     Role::Pawn,
@@ -143,6 +164,20 @@ pub(super) fn profile(role: Role) -> Profile {
     }
 }
 
+pub(crate) fn street_profile() -> Profile {
+    Profile {
+        count: 3,
+        delay: 0.30,
+        flight: 0.20,
+        interval: 0.115,
+        arc: 0.0,
+        crest: 0.0,
+        launch: Vec3::ZERO,
+        color: 0xffc66b,
+        accent: 0xffedb3,
+    }
+}
+
 #[derive(Default)]
 struct ShotVisual {
     shape: Handle<Mesh>,
@@ -162,6 +197,12 @@ pub(super) struct Effects {
     cannon: CannonMeshes,
     drone: DroneMeshes,
     lightning: LightningMeshes,
+    street: street::StreetMeshes,
+    lowrider: lowrider::LowriderFx,
+    molotov: molotov::MolotovFx,
+    taser: taser::TaserFx,
+    shotgun: shotgun::ShotgunFx,
+    smg: smg::SmgFx,
 }
 
 impl Effects {
@@ -230,6 +271,12 @@ impl Effects {
             cannon: CannonMeshes::new(meshes),
             drone: DroneMeshes::new(meshes, materials),
             lightning: LightningMeshes::new(meshes),
+            street: street::StreetMeshes::new(meshes, materials),
+            lowrider: lowrider::LowriderFx::new(meshes, materials),
+            molotov: molotov::MolotovFx::new(meshes, materials),
+            taser: taser::TaserFx::new(meshes, materials),
+            shotgun: shotgun::ShotgunFx::new(meshes, materials),
+            smg: smg::SmgFx::new(meshes, materials),
         }
     }
 
@@ -237,8 +284,52 @@ impl Effects {
         self.shots[role_index(role)].impact.clone()
     }
 
-    pub fn spawn(&self, commands: &mut Commands, request: CaptureFxRequest) {
-        let spec = profile(request.role);
+    pub fn spawn(
+        &self,
+        commands: &mut Commands,
+        request: CaptureFxRequest,
+        style: crate::PieceStyle,
+        target_role: Role,
+    ) {
+        if request.role == Role::Rook && style == crate::PieceStyle::GtaStreet {
+            self.spawn_mansion_molotov(commands, request);
+            return;
+        }
+        let hit_height = if style == crate::PieceStyle::GtaStreet && target_role == Role::Knight {
+            0.28
+        } else {
+            0.56
+        };
+        if request.role == Role::Knight && style == crate::PieceStyle::GtaStreet {
+            self.spawn_lowrider_drone(commands, request, hit_height);
+            return;
+        }
+        if request.role == Role::Bishop && style == crate::PieceStyle::GtaStreet {
+            self.spawn_police_taser(commands, request, hit_height);
+            return;
+        }
+        if request.role == Role::King && style == crate::PieceStyle::GtaStreet {
+            self.spawn_king_shotgun(
+                commands,
+                request,
+                if target_role == Role::Knight {
+                    0.28
+                } else {
+                    0.74
+                },
+            );
+            return;
+        }
+        if request.role == Role::Queen && style == crate::PieceStyle::GtaStreet {
+            self.spawn_queen_smg(commands, request, hit_height);
+            return;
+        }
+        let street = request.role == Role::Pawn && style == crate::PieceStyle::GtaStreet;
+        let spec = if street {
+            street_profile()
+        } else {
+            profile(request.role)
+        };
         let from = square_world(request.from);
         let target = square_world(request.target);
         let forward = (target - from).normalize();
@@ -250,16 +341,28 @@ impl Effects {
         } else {
             launch
         };
-        let end = target + Vec3::Y * 0.56;
+        let end = target + Vec3::Y * hit_height;
         let middle = (spec.count as f32 - 1.0) * 0.5;
-        let scale = if request.role == Role::Pawn {
+        let scale = if street {
+            Vec3::ONE
+        } else if request.role == Role::Pawn {
             Vec3::new(1.0, 1.0, 0.82) * 0.60
         } else {
             Vec3::ONE
         };
         for index in 0..spec.count {
+            let shot_origin = if street {
+                let muzzle = crate::characters::street_pawn_muzzle(
+                    spec.delay + index as f32 * spec.interval,
+                );
+                from + sideways * muzzle.x + Vec3::Y * muzzle.y - forward * muzzle.z
+            } else {
+                origin
+            };
             let lane = (index as f32 - middle) / middle.max(0.5);
-            let (endpoint, extra_flight) = if request.role == Role::Queen {
+            let (endpoint, extra_flight) = if street {
+                (end + sideways * lane * 0.014 + Vec3::Y * lane * 0.009, 0.0)
+            } else if request.role == Role::Queen {
                 let spread = artillery::impact_offset(index);
                 (
                     end + sideways * spread.x + forward * spread.y,
@@ -269,7 +372,7 @@ impl Effects {
                 (end, 0.0)
             };
             let shot = Projectile {
-                start: origin,
+                start: shot_origin,
                 end: endpoint,
                 sideways,
                 elapsed: -spec.delay - index as f32 * spec.interval,
@@ -277,15 +380,30 @@ impl Effects {
                 role: request.role,
                 index,
                 lane,
-                flight: match request.role {
-                    Role::Knight => Flight::KnightShell,
-                    Role::Rook => Flight::RookDrone { released: false },
-                    Role::King => Flight::BombDrop,
-                    _ => Flight::Arc,
+                flight: if street {
+                    Flight::StreetBullet
+                } else {
+                    match request.role {
+                        Role::Knight => Flight::KnightShell,
+                        Role::Rook => Flight::RookDrone { released: false },
+                        Role::King => Flight::BombDrop,
+                        _ => Flight::Arc,
+                    }
                 },
             };
             let visual = &self.shots[role_index(request.role)];
             let entity = self.spawn_shot(commands, shot, scale);
+
+            if street {
+                shot_layer(
+                    commands,
+                    entity,
+                    &self.trail,
+                    &self.street.visual.glow,
+                    Transform::from_scale(Vec3::new(0.12, 0.12, 0.32)),
+                );
+                continue;
+            }
 
             let mut layer =
                 |mesh: &Handle<Mesh>, surface: &Handle<StandardMaterial>, transform: Transform| {
@@ -331,7 +449,11 @@ impl Effects {
     }
 
     fn spawn_shot(&self, commands: &mut Commands, shot: Projectile, scale: Vec3) -> Entity {
-        let visual = &self.shots[role_index(shot.role)];
+        let visual = if shot.is_street_bullet() {
+            &self.street.visual
+        } else {
+            &self.shots[role_index(shot.role)]
+        };
         let progress = (shot.elapsed / shot.duration).clamp(0.0, 1.0);
         commands
             .spawn((
@@ -371,6 +493,12 @@ fn shot_layer(
 #[derive(Clone, Copy)]
 enum Flight {
     Arc,
+    StreetBullet,
+    QueenBullet { eject: Vec3, from: Vec3 },
+    TaserDart,
+    KingPellet { eject: Vec3 },
+    LowriderDrone,
+    Molotov { arc: f32, last_smoke: f32 },
     BombDrop,
     KnightShell,
     KnightFragment { control: Vec3 },
@@ -407,8 +535,40 @@ pub(super) struct Projectile {
 }
 
 impl Projectile {
+    pub fn is_queen_bullet(&self) -> bool {
+        matches!(self.flight, Flight::QueenBullet { .. })
+    }
+    pub fn is_king_pellet(&self) -> bool {
+        matches!(self.flight, Flight::KingPellet { .. })
+    }
+    pub fn is_taser_dart(&self) -> bool {
+        matches!(self.flight, Flight::TaserDart)
+    }
+    pub fn is_molotov(&self) -> bool {
+        matches!(self.flight, Flight::Molotov { .. })
+    }
+    pub fn is_lowrider_drone(&self) -> bool {
+        matches!(self.flight, Flight::LowriderDrone)
+    }
+    pub fn is_street_bullet(&self) -> bool {
+        matches!(self.flight, Flight::StreetBullet)
+    }
+
     pub fn position(&self, t: f32) -> Vec3 {
         let t = t.clamp(0.0, 1.0);
+        if self.is_molotov() {
+            return molotov::position(self, t);
+        }
+        if self.is_lowrider_drone() {
+            return lowrider::position(self, t);
+        }
+        if self.is_street_bullet()
+            || self.is_taser_dart()
+            || self.is_king_pellet()
+            || self.is_queen_bullet()
+        {
+            return self.start.lerp(self.end, t);
+        }
         if matches!(self.flight, Flight::BombDrop) {
             return self.start.lerp(self.end, 0.14 * t + 0.86 * t * t);
         }
@@ -444,6 +604,15 @@ impl Projectile {
     }
 
     pub fn rotation(&self, t: f32) -> Quat {
+        if self.is_taser_dart() || self.is_king_pellet() || self.is_queen_bullet() {
+            return Quat::from_rotation_arc(Vec3::Z, (self.end - self.start).normalize());
+        }
+        if self.is_molotov() {
+            return molotov::rotation(self, t);
+        }
+        if self.is_lowrider_drone() {
+            return lowrider::rotation(self, t);
+        }
         if matches!(self.flight, Flight::RookDrone { .. }) {
             return drone::rotation(self, t);
         }

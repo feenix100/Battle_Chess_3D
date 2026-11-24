@@ -5,9 +5,12 @@
 //! clocks, appearance controls, captured-piece display, and battle capture
 //! effects—but runs as a standalone Bevy desktop application.
 
+#[cfg(feature = "asset-preview")]
+mod asset_preview;
 mod board;
 mod characters;
 mod checkmate;
+mod color_controls;
 mod cpu;
 mod endgame;
 #[cfg(test)]
@@ -35,15 +38,16 @@ use game::{
     square_indices, status_text,
 };
 use projectiles::{
-    BombBlast, Effects, Projectile, animate_artillery_smoke, animate_bomb_blast, animate_drones,
-    animate_lightning,
+    BombBlast, Effects, MolotovFire, Projectile, ShotgunCloud, SmgEffect, TaserCircuit,
+    animate_artillery_smoke, animate_bomb_blast, animate_drones, animate_lightning,
+    animate_lowrider_drones, animate_molotov, animate_shotgun, animate_smg, animate_taser,
 };
 
 const CPU_DELAY_SECONDS: f32 = 0.42;
 
 fn main() {
-    App::new()
-        .insert_resource(ClearColor(Color::srgb(0.56, 0.67, 0.74)))
+    let mut app = App::new();
+    app.insert_resource(ClearColor(Color::srgb(0.56, 0.67, 0.74)))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Battle Chess 3d".to_owned(),
@@ -89,11 +93,18 @@ fn main() {
                 animate_lightning,
                 animate_bomb_blast,
                 animate_drones,
+                animate_lowrider_drones,
                 animate_artillery_smoke,
+                animate_molotov,
+                animate_taser,
+                animate_shotgun,
+                animate_smg,
             )
                 .chain(),
-        )
-        .run();
+        );
+    #[cfg(feature = "asset-preview")]
+    asset_preview::configure(&mut app);
+    app.run();
 }
 
 // ============================================================
@@ -212,8 +223,25 @@ enum PiecePreset {
     Neon,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+enum PieceStyle {
+    #[default]
+    Original,
+    GtaStreet,
+}
+
+impl PieceStyle {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Original => "Original",
+            Self::GtaStreet => "GTA Street",
+        }
+    }
+}
+
 #[derive(Resource)]
 struct Appearance {
+    piece_style: PieceStyle,
     board_preset: BoardPreset,
     piece_preset: PiecePreset,
     light_square: [f32; 3],
@@ -235,6 +263,7 @@ struct Appearance {
 impl Default for Appearance {
     fn default() -> Self {
         Self {
+            piece_style: PieceStyle::Original,
             board_preset: BoardPreset::Walnut,
             piece_preset: PiecePreset::Ivory,
             light_square: hex_rgb(0xd7bd96),
@@ -554,7 +583,11 @@ fn setup_scene(
     });
     let fx = Effects::new(&mut meshes, &mut materials);
     commands.insert_resource(checkmate::FireworkAssets::new(&mut meshes, &mut materials));
-    commands.insert_resource(CharacterAssets::new(&mut meshes, &mut bindposes));
+    commands.insert_resource(CharacterAssets::new(
+        &mut meshes,
+        &mut bindposes,
+        &mut materials,
+    ));
 
     let handles = SceneHandles {
         cube: cube.clone(),
@@ -809,6 +842,38 @@ fn hud_system(
                         ));
                     });
 
+                    ui.separator();
+                    let set_locked = scene_sync.pending_move.is_some()
+                        || scene_sync.characters_animating
+                        || !scene_sync.character_moves.is_empty();
+                    let previous_style = appearance.piece_style;
+                    ui.add_enabled_ui(!set_locked, |ui| {
+                        egui::ComboBox::from_label("Piece set")
+                            .selected_text(appearance.piece_style.label())
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut appearance.piece_style,
+                                    PieceStyle::Original,
+                                    "Original",
+                                );
+                                ui.selectable_value(
+                                    &mut appearance.piece_style,
+                                    PieceStyle::GtaStreet,
+                                    "GTA Street",
+                                );
+                            });
+                    })
+                    .response
+                    .on_hover_text(
+                        "Change sets between moves. GTA Street includes the pawn, lowrider knight, mansion rook, police bishop, shotgun king, and mini-Uzi queen.",
+                    );
+                    if appearance.piece_style == PieceStyle::GtaStreet {
+                        ui.small("Complete GTA set · six piece types");
+                    }
+                    if previous_style != appearance.piece_style {
+                        scene_sync.dirty = true;
+                    }
+
                     ui.collapsing("Appearance", |ui| {
                         let previous_board = appearance.board_preset;
                         egui::ComboBox::from_label("Board")
@@ -890,18 +955,17 @@ fn hud_system(
 
                         ui.checkbox(&mut appearance.glossy, "Gloss finish");
 
-                        ui.label("Light square");
-                        ui.color_edit_button_rgb(&mut appearance.light_square);
-                        ui.label("Dark square");
-                        ui.color_edit_button_rgb(&mut appearance.dark_square);
-                        ui.label("White pieces");
-                        ui.color_edit_button_rgb(&mut appearance.white_piece);
-                        ui.label("Black pieces");
-                        ui.color_edit_button_rgb(&mut appearance.black_piece);
-                        ui.label("Background");
-                        ui.color_edit_button_rgb(&mut appearance.background);
-                        ui.label("Scene light");
-                        ui.color_edit_button_rgb(&mut appearance.light_color);
+                        let colors = &mut *appearance;
+                        for (label, color) in [
+                            ("Light square", &mut colors.light_square),
+                            ("Dark square", &mut colors.dark_square),
+                            ("White pieces", &mut colors.white_piece),
+                            ("Black pieces", &mut colors.black_piece),
+                            ("Background", &mut colors.background),
+                            ("Scene light", &mut colors.light_color),
+                        ] {
+                            color_controls::edit_color(ui, label, color);
+                        }
 
                         let previous_orientation = appearance.knight_orientation;
                         egui::ComboBox::from_label("Knight orientation")
@@ -1471,6 +1535,7 @@ fn sync_scene_system(
     mut commands: Commands,
     game: Res<BattleGame>,
     interaction: Res<InteractionState>,
+    appearance: Res<Appearance>,
     handles: Option<Res<SceneHandles>>,
     mut scene_sync: ResMut<SceneSync>,
     highlight_query: Query<Entity, With<HighlightVisual>>,
@@ -1531,7 +1596,13 @@ fn sync_scene_system(
     }
 
     if let Some(request) = scene_sync.pending_fx.take() {
-        handles.fx.spawn(&mut commands, request);
+        handles.fx.spawn(
+            &mut commands,
+            request,
+            appearance.piece_style,
+            game.piece_at(request.target)
+                .map_or(Role::Pawn, |piece| piece.role),
+        );
     }
 
     scene_sync.dirty = false;
@@ -1564,7 +1635,18 @@ fn capture_fx_system(
     time: Res<Time>,
     handles: Option<Res<SceneHandles>>,
     mut projectiles: Query<(Entity, &mut Projectile, &mut Transform, &mut Visibility)>,
-    mut debris_query: Query<(Entity, &mut Debris, &mut Transform), Without<Projectile>>,
+    mut debris_query: Query<
+        (
+            Entity,
+            &mut Debris,
+            &mut Transform,
+            Option<&MolotovFire>,
+            Option<&TaserCircuit>,
+            Option<&ShotgunCloud>,
+            Option<&SmgEffect>,
+        ),
+        Without<Projectile>,
+    >,
     mut bomb_blasts: Query<(Entity, &mut BombBlast)>,
     mut fx_pause: ResMut<FxPause>,
     mut game: ResMut<BattleGame>,
@@ -1574,7 +1656,7 @@ fn capture_fx_system(
         for (entity, _, _, _) in &projectiles {
             commands.entity(entity).despawn();
         }
-        for (entity, _, _) in &debris_query {
+        for (entity, _, _, _, _, _, _) in &debris_query {
             commands.entity(entity).despawn();
         }
         for (entity, _) in &bomb_blasts {
@@ -1598,8 +1680,19 @@ fn capture_fx_system(
     }
     let mut projectiles_active = false;
     for (entity, mut projectile, mut transform, mut visibility) in &mut projectiles {
+        let before_launch = projectile.elapsed < 0.0;
         projectile.elapsed += time.delta_secs();
         if projectile.elapsed < 0.0 {
+            if projectile.is_molotov() && projectile.elapsed >= -0.08 {
+                let rise = ((projectile.elapsed + 0.08) / 0.08).clamp(0.0, 1.0);
+                transform.translation =
+                    projectile.start - Vec3::Y * (0.08 * (1.0 - rise * rise * (3.0 - 2.0 * rise)));
+            }
+            if (projectile.is_lowrider_drone() && projectile.elapsed >= -0.17)
+                || (projectile.is_molotov() && projectile.elapsed >= -0.08)
+            {
+                *visibility = Visibility::Visible;
+            }
             projectiles_active = true;
             continue;
         }
@@ -1614,6 +1707,20 @@ fn capture_fx_system(
             continue;
         }
         *visibility = Visibility::Visible;
+        if projectile.is_molotov() {
+            handles
+                .fx
+                .emit_molotov_smoke(&mut commands, &mut projectile);
+        }
+        if before_launch && projectile.is_king_pellet() && projectile.index == 0 {
+            handles.fx.spawn_king_flash(&mut commands, &projectile);
+        }
+        if before_launch && projectile.is_queen_bullet() {
+            handles.fx.spawn_smg_flash(&mut commands, &projectile);
+        }
+        if before_launch && projectile.is_street_bullet() {
+            handles.fx.spawn_street_flash(&mut commands, &projectile);
+        }
         let t = (projectile.elapsed / projectile.duration).clamp(0.0, 1.0);
         projectiles_active |= t < 1.0;
         transform.translation = projectile.position(t);
@@ -1621,8 +1728,38 @@ fn capture_fx_system(
 
         if t >= 1.0 {
             commands.entity(entity).despawn();
-            scene_sync.exploding = true;
+            if (!projectile.is_street_bullet() || projectile.index == 2)
+                && (!projectile.is_queen_bullet()
+                    || projectile.index + 1 == projectiles::QUEEN_SMG_ROUNDS)
+            {
+                scene_sync.exploding = true;
+            }
             explosion_active = true;
+            if projectile.is_queen_bullet() {
+                handles.fx.spawn_smg_impact(&mut commands, &projectile);
+                continue;
+            }
+            if projectile.is_king_pellet() {
+                if projectile.index == 0 {
+                    handles.fx.spawn_king_impact(&mut commands, &projectile);
+                }
+                continue;
+            }
+            if projectile.is_taser_dart() {
+                continue;
+            }
+            if projectile.is_molotov() {
+                handles.fx.spawn_molotov_impact(&mut commands, &projectile);
+                continue;
+            }
+            if projectile.is_lowrider_drone() {
+                handles.fx.spawn_lowrider_impact(&mut commands, &projectile);
+                continue;
+            }
+            if projectile.is_street_bullet() {
+                handles.fx.spawn_street_impact(&mut commands, &projectile);
+                continue;
+            }
             if projectile.role == Role::King {
                 handles.fx.spawn_bomb_blast(&mut commands, projectile.end);
                 continue;
@@ -1663,20 +1800,23 @@ fn capture_fx_system(
         }
     }
 
-    for (entity, mut debris, mut transform) in &mut debris_query {
+    for (entity, mut debris, mut transform, fire, circuit, cloud, smg_effect) in &mut debris_query {
         debris.remaining -= time.delta_secs();
-        debris.velocity.y -= 5.8 * time.delta_secs();
-        transform.translation += debris.velocity * time.delta_secs();
-        transform.rotate_x(time.delta_secs() * 12.0);
-        transform.rotate_z(time.delta_secs() * 9.0);
+        if fire.is_none() && circuit.is_none() && cloud.is_none() && smg_effect.is_none() {
+            debris.velocity.y -= 5.8 * time.delta_secs();
+            transform.translation += debris.velocity * time.delta_secs();
+            transform.rotate_x(time.delta_secs() * 12.0);
+            transform.rotate_z(time.delta_secs() * 9.0);
+        }
         if debris.remaining <= 0.0 {
             commands.entity(entity).despawn();
-        } else {
+        } else if !smg_effect.is_some_and(SmgEffect::is_settled_casing) {
             explosion_active = true;
         }
     }
 
-    // Commit only after the last fragment has disappeared. Character poses
+    // Settled casings are cosmetic and may remain while the queen starts walking.
+    // Commit after the active impact effects finish. Character poses
     // follow this lifecycle without affecting when the move is applied.
     if scene_sync.exploding && !explosion_active && !projectiles_active {
         scene_sync.exploding = false;
@@ -2149,6 +2289,112 @@ mod capture_tests {
             .resource_mut::<Time>()
             .advance_by(Duration::from_secs_f32(seconds));
         app.update();
+    }
+
+    #[test]
+    fn street_pawn_uses_small_straight_brass_rounds_from_its_animated_muzzle() {
+        let mut app = capture_app(false, true);
+        app.world_mut().resource_mut::<Appearance>().piece_style = PieceStyle::GtaStreet;
+        let mut materials = Assets::<StandardMaterial>::default();
+        let mut meshes = Assets::<Mesh>::default();
+        app.world_mut().resource_mut::<SceneHandles>().fx =
+            Effects::new(&mut meshes, &mut materials);
+        advance(&mut app, 0.0);
+        let world = app.world_mut();
+        let mut query = world.query::<(&Projectile, &MeshMaterial3d<StandardMaterial>, &Mesh3d)>();
+        let shots: Vec<_> = query.iter(world).collect();
+        assert_eq!(shots.len(), 3);
+        let timing = projectiles::street_profile();
+        for (shot, surface, mesh) in shots {
+            assert!(shot.is_street_bullet());
+            assert!(materials.get(&surface.0).unwrap().metallic > 0.6);
+            let Some(bevy::mesh::VertexAttributeValues::Float32x3(points)) = meshes
+                .get(&mesh.0)
+                .unwrap()
+                .attribute(Mesh::ATTRIBUTE_POSITION)
+            else {
+                panic!("bullet positions are required")
+            };
+            assert!(
+                points
+                    .iter()
+                    .all(|p| p[0].abs() <= 0.011 && p[1].abs() <= 0.011 && p[2].abs() <= 0.04),
+                "street bullets must stay small relative to a board square"
+            );
+            let launch_time = timing.delay + shot.index as f32 * timing.interval;
+            assert!((shot.elapsed + launch_time).abs() < 0.0001);
+            let from = square_world(Square::E4);
+            let forward = (square_world(Square::D5) - from).normalize();
+            let muzzle = characters::street_pawn_muzzle(launch_time);
+            let expected =
+                from + forward.cross(Vec3::Y) * muzzle.x + Vec3::Y * muzzle.y - forward * muzzle.z;
+            assert!(shot.start.distance(expected) < 0.0001);
+            for t in [0.0, 0.25, 0.5, 0.75, 1.0] {
+                assert!(shot.position(t).distance(shot.start.lerp(shot.end, t)) < 0.0001);
+                assert!(shot.rotation(t).is_finite());
+            }
+        }
+    }
+
+    #[test]
+    fn street_pawn_waits_for_the_last_bullet_then_commits_once_and_cleans_up() {
+        let mut app = capture_app(false, true);
+        app.world_mut().resource_mut::<Appearance>().piece_style = PieceStyle::GtaStreet;
+        advance(&mut app, 0.0);
+        advance(&mut app, 0.51);
+        assert!(
+            !app.world().resource::<SceneSync>().exploding,
+            "first hit is a flinch"
+        );
+        assert_eq!(app.world().resource::<BattleGame>().history_len(), 2);
+        advance(&mut app, 0.12);
+        assert!(
+            !app.world().resource::<SceneSync>().exploding,
+            "second hit is a flinch"
+        );
+        advance(&mut app, 0.12);
+        assert!(
+            app.world().resource::<SceneSync>().exploding,
+            "third hit starts defeat"
+        );
+        assert_eq!(app.world().resource::<BattleGame>().history_len(), 2);
+        for _ in 0..50 {
+            advance(&mut app, 0.04);
+        }
+        let world = app.world_mut();
+        assert_eq!(world.resource::<BattleGame>().history_len(), 3);
+        assert_eq!(
+            world.resource::<BattleGame>().piece_at(Square::D5),
+            Some(ChessColor::White.pawn())
+        );
+        assert!(world.resource::<SceneSync>().pending_move.is_none());
+        assert_eq!(world.query::<&Projectile>().iter(world).count(), 0);
+        assert_eq!(world.query::<&Debris>().iter(world).count(), 0);
+        assert_eq!(world.query::<&ChildOf>().iter(world).count(), 0);
+    }
+
+    #[test]
+    fn new_game_clears_street_bullets_flashes_and_impacts() {
+        for elapsed in [0.1, 0.35, 0.55, 0.80] {
+            let mut app = capture_app(false, true);
+            app.world_mut().resource_mut::<Appearance>().piece_style = PieceStyle::GtaStreet;
+            advance(&mut app, 0.0);
+            advance(&mut app, elapsed);
+            app.world_mut().resource_mut::<BattleGame>().reset();
+            app.world_mut()
+                .resource_mut::<SceneSync>()
+                .cancel_capture(&mut FxPause::default());
+            advance(&mut app, 0.0);
+            let world = app.world_mut();
+            assert_eq!(world.query::<&Projectile>().iter(world).count(), 0);
+            assert_eq!(world.query::<&Debris>().iter(world).count(), 0);
+            assert_eq!(world.query::<&ChildOf>().iter(world).count(), 0);
+            assert_eq!(world.resource::<BattleGame>().history_len(), 0);
+            assert_eq!(
+                world.resource::<Appearance>().piece_style,
+                PieceStyle::GtaStreet
+            );
+        }
     }
 
     #[test]

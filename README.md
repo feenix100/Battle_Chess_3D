@@ -1,16 +1,48 @@
 # Battle Chess 3D
 
-![Battle Chess 3D screenshot](screenshot.png)
+Choose **Piece set → GTA Street** in the in-game menu for the streetwear pawn,
+lowrider knight, mansion rook, police bishop, shotgun king, and mini-Uzi queen.
+All six piece types are now available in the GTA Street set. The pawn fires three
+small brass rounds. The lowrider launches a drone from its trunk. The mansion
+opens a rooftop hatch and
+lobs a rotating Molotov, followed by a brief fire effect at the captured square.
+Its stone-and-metal legs extend for movement and castling, then retract into
+the foundation when it stops.
+The police bishop raises a yellow taser, fires two tethered darts, and delivers
+two electrical pulses before the defender falls. It then patrols diagonally
+into the captured square.
+The bishop's shirt, pants, and helmet follow the team piece colors under Appearance.
+The barrel-chested king has a mustache and tied bandanna. His shotgun rests
+diagonally against his shoulder while idle and walking. For a capture he lowers
+it into a firing stance, blasts a spread of small pellets, recoils, and returns
+it to his shoulder. A brief muzzle flash, smoke, and one ejected shell accompany
+the shot. His tank top, trousers, and bandanna follow the selected team color.
+The queen wears a crop top, pleated skirt, tiara, and long ponytail. She raises
+a compact mini Uzi and fires a sweeping ten-round burst. Early hits cause brief
+flinches; the last round triggers the defender's fall. Each shot has recoil,
+a muzzle flash, and an ejected casing. Her outfit follows the team piece color.
+Casings fall beside her and settle on the board. Every defender receives the
+same brief red-fluid spray and gray smoke during her burst.
+**Original** remains available with its original attacks.
+See [`art/street_pawn`](art/street_pawn), [`art/lowrider`](art/lowrider),
+[`art/mansion`](art/mansion), [`art/police_bishop`](art/police_bishop),
+[`art/street_king`](art/street_king), and [`art/street_queen`](art/street_queen)
+for STLs, editable models and asset sources.
+Each GTA piece includes original geometry and its own capture animation.
+
+![GTA Street pieces on a red-and-navy Battle Chess 3D board](screenshot.png)
 
 This is Chess, with a twist. Inspired by *Battle Chess*, released for MS-DOS in
-[January 1989](https://classicreload.com/battle-chess.html),
+[January 1989](https://www.mobygames.com/game/1950/battle-chess/releases/dos/),
 BattleChess 3D
-takes that idea in a modern direction with animated 3D characters and explosive projectile captures. Every piece has a different capture animation. 
+takes that idea in a modern direction with animated 3D characters and explosive projectile captures. Every piece has a different capture animation.
 
 3d Chess game, written in the Rust programming language.
 
 The game follows standard chess rules and lets you play locally against another
 person or the built-in CPU.
+
+The Original set uses these capture animations:
 
 - **Pawn:** Fires holographic bullets.
 - **Knight:** Launches a cannonball that splits into smaller cannonballs in
@@ -220,6 +252,12 @@ Run the compiled executable:
 
 If `CARGO_TARGET_DIR` is set, the executable is in that directory's `release` folder.
 
+To render the GTA showcase images from the game:
+
+```powershell
+cargo run --features asset-preview -- --readme-screenshots target/readme-previews
+```
+
 ## Controls
 
 | Input | Action |
@@ -239,6 +277,14 @@ The sidebar includes New game, Undo, Flip, CPU settings, camera controls, clocks
 appearance settings, and move history. **Reset view** restores the camera's
 position and clears panning. The **Battle animations** toggle controls animated
 movement and capture effects.
+
+Under **Appearance**, click a color square to open its menu with a visual picker
+and large **Hex** and **RGB** text fields. Enter `#FF8040`, `FF8040`, or shorthand
+`#F84` for hex; enter
+`255, 128, 64` or `rgb(255, 128, 64)` for RGB. Valid values apply immediately
+and keep the other field and picker in sync. Invalid entries show a hint and
+retain the last valid color. Press Escape in a field to restore its current value.
+The picker and text fields sit side by side so the entire menu is visible without scrolling.
 
 ## Project layout
 

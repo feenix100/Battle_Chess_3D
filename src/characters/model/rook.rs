@@ -145,5 +145,7 @@ pub(super) fn spawn(b: &mut Builder, root: Entity) -> Rig {
         cloth: None,
         retractable: true,
         hatch: Some(hatch),
+        car: None,
+        mansion: None,
     }
 }

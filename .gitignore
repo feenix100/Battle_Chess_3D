@@ -1,0 +1,7 @@
+/target/
+*.pdb
+.DS_Store
+
+*.mp4
+__pycache__/
+*.py[cod]
